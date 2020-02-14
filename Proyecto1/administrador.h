@@ -17,6 +17,8 @@ public:
     void crearDisco(Funcion *funcion);
     void eliminarDisco(Funcion *funcion);
     void crearParticion(Funcion *funcion);
+    void eliminarParticion(Funcion*funcion);
+    void addParticion(Funcion*funcion);
     void montarDisco(Funcion *funcion);
     void desmontarDisco(Funcion *funcion);
     void reportes(Funcion *funcion);
@@ -42,6 +44,7 @@ public:
     void pausar(Funcion *funcion);
     void recuperar(Funcion *funcion);
     void perdida(Funcion *funcion);
+    void reporteMBR(Funcion* funcion,MBR mbr);
     void reporteDisco(Funcion* funcion,MBR mbr);
     void repJournaling(Funcion* funcion);
     void repBMArbVirtual(Funcion* funcion);

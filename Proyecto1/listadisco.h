@@ -1,9 +1,10 @@
 #ifndef LISTADISCO_H
 #define LISTADISCO_H
-
 #include "nododisco.h"
-#include "string"
-
+#include "string.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "iostream"
 class ListaDisco
 {
 public:
