@@ -30,4 +30,10 @@ typedef struct{
     Particion particiones[4];
 } MBR;
 
+typedef struct NodoFit{
+    int inicio;
+    int size;
+    NodoFit* siguiente;
+} NodoFit;
+
 #endif // ESTRUCTURAS_H

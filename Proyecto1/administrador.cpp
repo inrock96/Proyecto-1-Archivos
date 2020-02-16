@@ -111,7 +111,7 @@ void Administrador::crearDisco(Funcion *funcion){
                     cout<<"Error al escribir archivo"<<comando2<<endl;
                 }
             }else {
-                cout<<"Error al crear disco, no tiene terminación .disk"<<endl;
+           https://trello.com/c/3q7z4Icn/11-reporte-disk     cout<<"Error al crear disco, no tiene terminación .disk"<<endl;
             }
         }else{
             cout<<"Error, el tamaño del disco no puede ser menor a 1"<<endl;
@@ -316,32 +316,33 @@ void Administrador::crearParticion(Funcion *funcion){
 
                             }
                             if(mbr.particiones[posicion].part_size>tamanoPart){
-                                int byteInicio = mbr.particiones[posicion].part_inicia;
+                                int byteInicio = mbr.particiones[posicion].part_start;
                                 fseek(archivo,byteInicio,SEEK_SET);
                                 fread(&ebr,sizeof (EBR),1,archivo);
                                 if(ebr.part_size>0){
                                     /*Ya existe una lógica*/
-                                    while(ebr.part_next!=-1){
-                                        fseek(archivo,ebr.part_next,SEEK_SET);
-                                        fread(&ebr,sizeof (EBR),1,archivo);
+
+                                    int inicio;
+                                    if(mbr.disk_fit=='f')
+                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);
+                                    else if(mbr.disk_fit=='b'){
+                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);/*getBFByte CHECK*/
+                                    }else{
+                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);/*getWFByte CHECK*/
                                     }
-                                    int inicio = ebr.part_start+ebr.part_size;
-                                    //CHECK AGREGAR FF BF Y WF A LOGICA
-                                    EBR ebr2;
-                                    int byteFinal = inicio+tamanoPart-1;
-                                    if(byteFinal<=mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size-1){
-                                        strcpy(ebr2.part_name,nombreFunc);
-                                        ebr2.part_fit=fit;
-                                        ebr2.part_next = -1;
-                                        ebr2.part_size = tamanoPart;
-                                        ebr2.part_start = inicio;
-                                        ebr2.part_status='e';
+                                    if(inicio==mbr.particiones[posicion].part_start+sizeof (EBR)){
+                                        //Se eliminó la primera y ahora esta será la primera
+                                        strcpy(ebr.part_name,nombreFunc);
+                                        ebr.part_fit=fit;
+                                        ebr.part_size = tamanoPart;
+                                        ebr.part_start = inicio;
+                                        ebr.part_status='e';
+                                        fseek(archivo,mbr.particiones[posicion].part_start,SEEK_SET);
+                                        fseek(fRaid,mbr.particiones[posicion].part_start,SEEK_SET);
+                                        fwrite(&ebr,sizeof (EBR),1,archivo);
+                                        fwrite(&ebr,sizeof (EBR),1,fRaid);
                                         fseek(archivo,inicio,SEEK_SET);
                                         fseek(fRaid,inicio,SEEK_SET);
-                                        fwrite(&ebr2,sizeof (EBR),1,archivo);
-                                        fwrite(&ebr2,sizeof (EBR),1,fRaid);
-                                        fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
-                                        fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
                                         char c ='z';
                                         int tam = tamanoPart-sizeof (EBR);
                                         while(tam>0){
@@ -349,15 +350,51 @@ void Administrador::crearParticion(Funcion *funcion){
                                             fwrite(&c,1,1,fRaid);
                                             tam--;
                                         }
-                                        ebr.part_next = ebr2.part_start;
-                                        fseek(archivo,ebr.part_start,SEEK_SET);
-                                        fseek(fRaid,ebr.part_start,SEEK_SET);
-                                        fwrite(&ebr,sizeof (EBR),1,archivo);
-                                        fwrite(&ebr,sizeof (EBR),1,fRaid);
-                                        cout<<"Partición lógica creada"<<endl;
                                     }else{
-                                        cout<<"Error, la lógica supera el espacio restante de la extendida"<<endl;
+                                        //En medio o al final
+                                        while(ebr.part_next!=-1){
+                                            if(ebr.part_start+ebr.part_size==inicio){
+                                                break;
+                                            }
+                                            fseek(archivo,ebr.part_next,SEEK_SET);
+                                            fread(&ebr,sizeof (EBR),1,archivo);
+                                        }
+
+                                        //CHECK AGREGAR FF BF Y WF A LOGICA
+                                        EBR ebr2;
+
+                                        int byteFinal = inicio+tamanoPart-1;
+                                        if(byteFinal<=mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size-1){
+                                            strcpy(ebr2.part_name,nombreFunc);
+                                            ebr2.part_fit=fit;
+                                            ebr2.part_next = ebr.part_next;
+                                            ebr2.part_size = tamanoPart;
+                                            ebr2.part_start = inicio;
+                                            ebr2.part_status='e';
+                                            fseek(archivo,inicio,SEEK_SET);
+                                            fseek(fRaid,inicio,SEEK_SET);
+                                            fwrite(&ebr2,sizeof (EBR),1,archivo);
+                                            fwrite(&ebr2,sizeof (EBR),1,fRaid);
+                                            fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
+                                            fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
+                                            char c ='z';
+                                            int tam = tamanoPart-sizeof (EBR);
+                                            while(tam>0){
+                                                fwrite(&c,1,1,archivo);
+                                                fwrite(&c,1,1,fRaid);
+                                                tam--;
+                                            }
+                                            ebr.part_next = ebr2.part_start;
+                                            fseek(archivo,ebr.part_start,SEEK_SET);
+                                            fseek(fRaid,ebr.part_start,SEEK_SET);
+                                            fwrite(&ebr,sizeof (EBR),1,archivo);
+                                            fwrite(&ebr,sizeof (EBR),1,fRaid);
+                                            cout<<"Partición lógica creada"<<endl;
+                                        }else{
+                                            cout<<"Error, la lógica supera el espacio restante de la extendida"<<endl;
+                                        }
                                     }
+
                                 }else{
                                     /*Es la primera lógica*/
                                     int inicio = byteInicio+ebr.part_size;
@@ -412,6 +449,28 @@ void Administrador::crearParticion(Funcion *funcion){
     }else {
         cout<<"Error al crear partición, no están los campos mínimos necesarios"<<endl;
     }
+}
+
+int Administrador::getFFByteLogica(FILE *file, int tamano,int startExtendida,int finExtendida){
+    int i = startExtendida;
+    fseek(file,sizeof(MBR),SEEK_SET);
+    int actual = ftell(file);
+    int espacioLibre=0;
+    char comp;
+    while(i<finExtendida&&espacioLibre<tamano){
+        comp = fgetc(file);
+        if(comp=='y')
+            espacioLibre++;
+        else{
+            espacioLibre=0;
+            actual = ftell(file);
+        }
+        if(espacioLibre>=tamano){
+            return actual;
+        }
+        i++;
+    }
+    return -1;
 }
 void Administrador::eliminarParticion(Funcion *funcion){
     string raidName = funcion->getRaidName();
@@ -601,6 +660,33 @@ void Administrador::reporteMBR(Funcion *funcion, MBR mbr){
     generarReporte(funcion,"mbr");
 }
 
+void Administrador::reporteDisco(Funcion* funcion,MBR mbr){
+    FILE* archivo = fopen("/home/mia/Reportes/discoRep.dot","w");
+    NodoParticion* part = listaDisco->existeId(funcion->id[0]);
+    if(archivo!=nullptr){
+        fprintf (archivo, "digraph g { \n subgraph sub { \n node [shape=rectangle style=filled color=black fillcolor=white];\n");
+        fprintf (archivo, "titulo[fontsize=40, label=\"Reporte disco\", shape=plain, style=\"\"];\n");
+        fprintf (archivo, "titulo->mbr;\n");
+        fprintf (archivo, "mbr [label=\"MBR\"];\n");
+        discoInterno(sizeof (MBR),mbr,archivo,part);
+        fprintf ( archivo, "}\n}\n");
+        fclose(archivo);
+
+        /**************************************************************************************/
+        generarReporte(funcion,"discoRep");
+    }else{
+        //no sirve el archivón
+    }
+}
+
+void Administrador::discoInterno(int bitActual, MBR mbr, FILE *archivo, NodoParticion *part){
+
+}
+
+void Administrador::discoEBR(int bitActual, MBR mbr, FILE *archivo, NodoParticion *part, EBR ebr){
+
+}
+
 void Administrador::reportes(Funcion *funcion){
     if(funcion->opciones[6]==1&&funcion->opciones[3]==1&&funcion->opciones[8]==1){
         if(funcion->nombre.compare("mbr")==0){
@@ -698,5 +784,59 @@ int Administrador::getFFByte(FILE *file, int tamano){
         }
     }
     return -1;
+}
+
+int Administrador::getBFByte(FILE *file, int tamano){
+    MBR mbr;
+    fseek(file,0,SEEK_SET);
+    fread(&mbr,sizeof (MBR),1,file);
+    int retorno = -1;
+    int menorEspacio=mbr.mbr_tamano;
+    int actual = ftell(file);
+    int espacioLibre=0;
+    char comp;
+    while(!feof(file)){
+        comp = fgetc(file);
+        if(comp=='0')
+            espacioLibre++;
+        else{
+            espacioLibre=0;
+            actual = ftell(file);
+        }
+        if(espacioLibre>=tamano){
+            if(menorEspacio>espacioLibre){
+                menorEspacio = espacioLibre;
+                retorno = actual;
+            }
+        }
+    }
+    return retorno;
+}
+
+int Administrador::getWFByte(FILE *file, int tamano){
+    MBR mbr;
+    fseek(file,0,SEEK_SET);
+    fread(&mbr,sizeof (MBR),1,file);
+    int retorno = -1;
+    int mayorEspacio=-1;
+    int actual = ftell(file);
+    int espacioLibre=0;
+    char comp;
+    while(!feof(file)){
+        comp = fgetc(file);
+        if(comp=='0')
+            espacioLibre++;
+        else{
+            espacioLibre=0;
+            actual = ftell(file);
+        }
+        if(espacioLibre>=tamano){
+            if(mayorEspacio<espacioLibre){
+                mayorEspacio = espacioLibre;
+                retorno = actual;
+            }
+        }
+    }
+    return retorno;
 }
 

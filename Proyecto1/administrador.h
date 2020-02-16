@@ -62,6 +62,11 @@ private:
     string getAbsPath(Funcion *funcion);
     MBR leerMBR(FILE* file);
     int getFFByte(FILE* file, int tamano);
+    int getBFByte(FILE* file, int tamano);
+    int getWFByte(FILE* file, int tamano);
+    int getFFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
+    int getWFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
+    int getBFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
     void escribirMBR(FILE* file, MBR mbr);
     Particion getParticion(char* path,char*nombre);
     int existeEBR(MBR mbr);
