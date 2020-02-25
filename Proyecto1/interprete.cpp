@@ -29,12 +29,12 @@ void Interprete::ejecutar(string entrada){
     while(contador<tamanoEntrada&&comando[contador]!=NULL){
         /*Viene un comentario*/
         if(comando[contador]=='#'){
-            cout<<"Reconoció comentario: ";
+            //cout<<"Reconoció comentario: ";
             while (comando[contador]!=NULL) {
                 tokenActual+=comando[contador];
                 contador++;
             }
-            cout<<tokenActual<<endl;
+            //cout<<tokenActual<<endl;
 
             break;
          /*Viene un espacio*/
@@ -54,9 +54,8 @@ void Interprete::ejecutar(string entrada){
                     contador++;
                 }
                 funcion->funcion = getOpcion(tokenActual);
-                if(funcion->funcion>=0)
-                    cout<<"Se reconoció el comando "<<tokenActual<<endl<<endl;
-                else {
+                if(funcion->funcion<0)
+                 {
                     cout<<"Error, esa función no existe"<<endl;
                     break;
                 }
@@ -111,6 +110,7 @@ void Interprete::ejecutar(string entrada){
 
             if(opActual>=0)
                 funcion->opciones[opActual]=1;
+
             //contador++;
             while(esEspacio(comando[contador]))
                 contador++;
@@ -438,7 +438,6 @@ void Interprete::ejecutar(string entrada){
                 case 28:
                 //    admin->perdida(funcion);      //Mínimo
                     break;
-
                 default:
                     cout<<"Error, No se ingresó una opción válida"<<endl;
                     break;
@@ -456,7 +455,8 @@ void Interprete::ejecutarComando(Funcion *funcion){
                 while(getline(fichero,line)){
                     std::copy(line.begin(), line.end(), comando);
                     comando[line.size()] = '\0';
-                    this->ejecutar(entrada);
+                    if(comando[0]!='#')
+                        this->ejecutar(comando);
                 }
                 fichero.close();
             }else{
@@ -607,4 +607,3 @@ int Interprete::getOpcion(string token){
             return 28;
         return 29;
 }
-

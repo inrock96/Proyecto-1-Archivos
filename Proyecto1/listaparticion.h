@@ -2,6 +2,7 @@
 #define LISTAPARTICION_H
 
 #include "nodoparticion.h"
+#include "string"
 class ListaParticion
 {
 public:

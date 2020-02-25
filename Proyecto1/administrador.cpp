@@ -24,6 +24,7 @@ void Administrador::crearDisco(Funcion *funcion){
             /*creamos el dijkito*/
             cout<<"Inicia creación de disco"<<endl;
             MBR mbr;
+            mbr.disk_fit=fit;
             /*fecha y hora*/
             mbr.mbr_fecha_creacion = time(0);
             /*Identificador de disco*/
@@ -111,7 +112,6 @@ void Administrador::crearDisco(Funcion *funcion){
                     cout<<"Error al escribir archivo"<<comando2<<endl;
                 }
             }else {
-           https://trello.com/c/3q7z4Icn/11-reporte-disk     cout<<"Error al crear disco, no tiene terminación .disk"<<endl;
             }
         }else{
             cout<<"Error, el tamaño del disco no puede ser menor a 1"<<endl;
@@ -149,7 +149,7 @@ void Administrador::crearParticion(Funcion *funcion){
         bool error=false;
         if(archivo!=nullptr&&fRaid!=nullptr){
             /*****************************CREAR PARTICION*************************************/
-            if(funcion->opciones[0]==1&&funcion->opciones[5]==0&&funcion->opciones[7]==0){
+            if(funcion->opciones[0]==1&&funcion->opciones[5]==-1&&funcion->opciones[7]==-1){
                 MBR mbr,mbRaid;
                 mbr = leerMBR(archivo);
                 mbRaid = leerMBR(fRaid);
@@ -194,7 +194,7 @@ void Administrador::crearParticion(Funcion *funcion){
                 cout<<"Particiones extendidas: "<<hayExtendida<<endl;
                 tempPrimarias=cantPrimarias;
                 /************INICIA LA CREACION DE LA PARTICION***************/
-                int tamanoPart;
+                int tamanoPart=-1;
                 if(unidad=='b')
                     tamanoPart=funcion->size;
                 else if(unidad=='k')
@@ -225,9 +225,9 @@ void Administrador::crearParticion(Funcion *funcion){
                         if(mbr.disk_fit=='f')
                             byteInicio = getFFByte(archivo,tamanoPart);
                         else if(mbr.disk_fit=='b'){
-                            byteInicio = getFFByte(archivo,tamanoPart);/*getBFByte CHECK*/
+                            byteInicio = getBFByte(archivo,tamanoPart);/*getBFByte CHECK*/
                         }else{
-                            byteInicio = getFFByte(archivo,tamanoPart);/*getWFByte CHECK*/
+                            byteInicio = getWFByte(archivo,tamanoPart);/*getWFByte CHECK*/
                         }
                         if(posicion!=-1){
                             if(byteInicio>-1){
@@ -264,9 +264,9 @@ void Administrador::crearParticion(Funcion *funcion){
                         if(mbr.disk_fit=='f')
                             byteInicio = getFFByte(archivo,tamanoPart);
                         else if(mbr.disk_fit=='b'){
-                            byteInicio = getFFByte(archivo,tamanoPart);/*CHECK getBFByte*/
+                            byteInicio = getBFByte(archivo,tamanoPart);/*CHECK getBFByte*/
                         }else{
-                            byteInicio = getFFByte(archivo,tamanoPart);/*CHECK getWFByte*/
+                            byteInicio = getWFByte(archivo,tamanoPart);/*CHECK getWFByte*/
                         }
                         if(posicion!=-1){
                             if(byteInicio!=-1&&hayExtendida){
@@ -290,7 +290,7 @@ void Administrador::crearParticion(Funcion *funcion){
                                 }
                                 ebr.part_status = 'd';
                                 ebr.part_fit = fit;
-                                strcpy("extendida",nombreFunc);
+                                strcpy(ebr.part_name,nombreFunc);
                                 ebr.part_size = 0;
                                 ebr.part_start = byteInicio;
                                 ebr.part_next = -1;
@@ -310,118 +310,82 @@ void Administrador::crearParticion(Funcion *funcion){
                     /*LOGICA*/
                     else if(funcion->type=='l'){
                         if(hayExtendida){
-                            for (int i=0;i<4;i++) {
-                                if(mbr.particiones[i].part_type=='e')
-                                    posicion=i;
+                             for (int i=0;i<4;i++) {
+                                 if(mbr.particiones[i].part_type=='e')
+                                     posicion=i;
+                             }
+                             if(mbr.particiones[posicion].part_size>tamanoPart){
+                                 int byteInicio = mbr.particiones[posicion].part_start;
+                                 fseek(archivo,byteInicio,SEEK_SET);
+                                 fseek(fRaid,byteInicio,SEEK_SET);
+                                 fread(&ebr,sizeof (EBR),1,archivo);
+                                 if(ebr.part_size>0){
+                                     /*Ya existe una lógica*/
+                                     while(ebr.part_next!=-1){
+                                         fseek(archivo,ebr.part_next,SEEK_SET);
+                                         fread(&ebr,sizeof (EBR),1,archivo);
+                                     }
+                                     int inicio = ebr.part_start+ebr.part_size;
+                                     EBR ebr2;
+                                     int byteFinal = inicio+tamanoPart-1;
+                                     if(byteFinal<=mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size-1){
+                                         strcpy(ebr2.part_name,nombreFunc);
+                                         ebr2.part_fit=fit;
+                                         ebr2.part_next = -1;
+                                         ebr2.part_size = tamanoPart;
+                                         ebr2.part_start = inicio;
+                                         ebr2.part_status='e';
+                                         fseek(archivo,inicio,SEEK_SET);
+                                         fseek(fRaid,inicio,SEEK_SET);
+                                         fwrite(&ebr2,sizeof (EBR),1,archivo);
+                                         fwrite(&ebr2,sizeof (EBR),1,fRaid);
+                                         fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
+                                         fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
+                                         char c ='z';
+                                         int tam = tamanoPart-sizeof (EBR);
+                                         while(tam>0){
+                                             fwrite(&c,1,1,archivo);
+                                             fwrite(&c,1,1,fRaid);
+                                             tam--;
+                                         }
+                                         ebr.part_next = ebr2.part_start;
+                                         fseek(archivo,ebr.part_start,SEEK_SET);
+                                         fseek(fRaid,ebr.part_start,SEEK_SET);
+                                         fwrite(&ebr,sizeof (EBR),1,archivo);
+                                         fwrite(&ebr,sizeof (EBR),1,fRaid);
+                                         cout<<"*********************Partición lógica creada*************************"<<endl;
+                                     }else{
+                                         cout<<"Error, la lógica supera el espacio restante de la extendida"<<endl;
+                                     }
+                                 }else{
+                                     /*Es la primera lógica*/
+                                     int inicio = byteInicio+ebr.part_size;
 
-                            }
-                            if(mbr.particiones[posicion].part_size>tamanoPart){
-                                int byteInicio = mbr.particiones[posicion].part_start;
-                                fseek(archivo,byteInicio,SEEK_SET);
-                                fread(&ebr,sizeof (EBR),1,archivo);
-                                if(ebr.part_size>0){
-                                    /*Ya existe una lógica*/
+                                     ebr.part_fit = fit;
+                                     ebr.part_size = tamanoPart;
+                                     ebr.part_status = 'e';
+                                     strcpy(ebr.part_name,nombreFunc);
 
-                                    int inicio;
-                                    if(mbr.disk_fit=='f')
-                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);
-                                    else if(mbr.disk_fit=='b'){
-                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);/*getBFByte CHECK*/
-                                    }else{
-                                        inicio = getFFByteLogica(archivo,funcion->size,mbr.particiones[posicion].part_start,mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size);/*getWFByte CHECK*/
-                                    }
-                                    if(inicio==mbr.particiones[posicion].part_start+sizeof (EBR)){
-                                        //Se eliminó la primera y ahora esta será la primera
-                                        strcpy(ebr.part_name,nombreFunc);
-                                        ebr.part_fit=fit;
-                                        ebr.part_size = tamanoPart;
-                                        ebr.part_start = inicio;
-                                        ebr.part_status='e';
-                                        fseek(archivo,mbr.particiones[posicion].part_start,SEEK_SET);
-                                        fseek(fRaid,mbr.particiones[posicion].part_start,SEEK_SET);
-                                        fwrite(&ebr,sizeof (EBR),1,archivo);
-                                        fwrite(&ebr,sizeof (EBR),1,fRaid);
-                                        fseek(archivo,inicio,SEEK_SET);
-                                        fseek(fRaid,inicio,SEEK_SET);
-                                        char c ='z';
-                                        int tam = tamanoPart-sizeof (EBR);
-                                        while(tam>0){
-                                            fwrite(&c,1,1,archivo);
-                                            fwrite(&c,1,1,fRaid);
-                                            tam--;
-                                        }
-                                    }else{
-                                        //En medio o al final
-                                        while(ebr.part_next!=-1){
-                                            if(ebr.part_start+ebr.part_size==inicio){
-                                                break;
-                                            }
-                                            fseek(archivo,ebr.part_next,SEEK_SET);
-                                            fread(&ebr,sizeof (EBR),1,archivo);
-                                        }
-
-                                        //CHECK AGREGAR FF BF Y WF A LOGICA
-                                        EBR ebr2;
-
-                                        int byteFinal = inicio+tamanoPart-1;
-                                        if(byteFinal<=mbr.particiones[posicion].part_start+mbr.particiones[posicion].part_size-1){
-                                            strcpy(ebr2.part_name,nombreFunc);
-                                            ebr2.part_fit=fit;
-                                            ebr2.part_next = ebr.part_next;
-                                            ebr2.part_size = tamanoPart;
-                                            ebr2.part_start = inicio;
-                                            ebr2.part_status='e';
-                                            fseek(archivo,inicio,SEEK_SET);
-                                            fseek(fRaid,inicio,SEEK_SET);
-                                            fwrite(&ebr2,sizeof (EBR),1,archivo);
-                                            fwrite(&ebr2,sizeof (EBR),1,fRaid);
-                                            fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
-                                            fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
-                                            char c ='z';
-                                            int tam = tamanoPart-sizeof (EBR);
-                                            while(tam>0){
-                                                fwrite(&c,1,1,archivo);
-                                                fwrite(&c,1,1,fRaid);
-                                                tam--;
-                                            }
-                                            ebr.part_next = ebr2.part_start;
-                                            fseek(archivo,ebr.part_start,SEEK_SET);
-                                            fseek(fRaid,ebr.part_start,SEEK_SET);
-                                            fwrite(&ebr,sizeof (EBR),1,archivo);
-                                            fwrite(&ebr,sizeof (EBR),1,fRaid);
-                                            cout<<"Partición lógica creada"<<endl;
-                                        }else{
-                                            cout<<"Error, la lógica supera el espacio restante de la extendida"<<endl;
-                                        }
-                                    }
-
-                                }else{
-                                    /*Es la primera lógica*/
-                                    int inicio = byteInicio+ebr.part_size;
-                                    ebr.part_fit = fit;
-                                    ebr.part_size = tamanoPart;
-                                    ebr.part_status = 'e';
-                                    strcpy(ebr.part_name,nombreFunc);
-                                    fseek(archivo,byteInicio,SEEK_SET);
-                                    fseek(fRaid,byteInicio,SEEK_SET);
-                                    fwrite(&ebr,sizeof (EBR),1,archivo);
-                                    fwrite(&ebr,sizeof (EBR),1,fRaid);
-                                    int tam = tamanoPart-sizeof (EBR);
-                                    fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
-                                    fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
-                                    char c = 'z';
-                                    while(tam>0){
-                                        fwrite(&c,1,1,archivo);
-                                        fwrite(&c,1,1,fRaid);
-                                        tam--;
-                                    }
-                                    cout<<"Particion lógica creada con éxito";
-                                }
+                                     fseek(archivo,byteInicio,SEEK_SET);
+                                     fseek(fRaid,byteInicio,SEEK_SET);
+                                     fwrite(&ebr,sizeof (EBR),1,archivo);
+                                     fwrite(&ebr,sizeof (EBR),1,fRaid);
+                                     int tam = tamanoPart-sizeof (EBR);
+                                     fseek(archivo,inicio+sizeof (EBR),SEEK_SET);
+                                     fseek(fRaid,inicio+sizeof (EBR),SEEK_SET);
+                                     char c = 'z';
+                                     while(tam>0){
+                                         fwrite(&c,1,1,archivo);
+                                         fwrite(&c,1,1,fRaid);
+                                         tam--;
+                                     }
+                                     cout<<"******************Particion lógica creada con éxito********************";
+                                 }
                             }else{
                                 cout<<"Error, el tamano de la logica es mayor a la extendida"<<endl;
                             }
                         }else{
-                            cout<<"Error, no hay particion extendida para la creación lógica"<<endl;
+                             cout<<"Error, no hay particion extendida para la creación lógica"<<endl;
                         }
                     }else{
                         cout<<"Esa opción no existe"<<endl;
@@ -431,12 +395,12 @@ void Administrador::crearParticion(Funcion *funcion){
                 }
             }
             /*******************************ELIMINAR PARTICION********************************/
-            else if(funcion->opciones[0]==0&&funcion->opciones[5]==1&&funcion->opciones[7]==0){
+            else if(funcion->opciones[0]==-1&&funcion->opciones[5]==1&&funcion->opciones[7]==-1){
                 eliminarParticion(funcion);
             }
             /*****************************MODIFICAR TAMANO PARTICION*************************/
-            else if(funcion->opciones[0]==0&&funcion->opciones[5]==0&&funcion->opciones[7]==1){
-
+            else if(funcion->opciones[0]==-1&&funcion->opciones[5]==-1&&funcion->opciones[7]==1){
+                addParticion(funcion);
             }else{
                 cout<<"Error fdisk, size, delete y add son excluyentes"<<endl;
             }
@@ -472,6 +436,7 @@ int Administrador::getFFByteLogica(FILE *file, int tamano,int startExtendida,int
     }
     return -1;
 }
+
 void Administrador::eliminarParticion(Funcion *funcion){
     string raidName = funcion->getRaidName();
     char comando[100];
@@ -496,16 +461,24 @@ void Administrador::eliminarParticion(Funcion *funcion){
             }
         }
         if(j!=-1){
-            char c = '0';
-            fseek(archivo,mbr.particiones[j].part_start,SEEK_SET);
-            fseek(fRaid,mbr.particiones[j].part_start,SEEK_SET);
-            for (i=0;i<mbr.particiones[j].part_size;i++) {
-                fwrite(&c,1,1,archivo);
-                fwrite(&c,1,1,fRaid);
+            string respuesta;
+            cout<<"Esta seguro que quiere eliminar esta partición? s/n"<<endl;
+            cin>>respuesta;
+            if(respuesta.compare("s")==0||respuesta.compare("S")==0){
+                char c = '0';
+                fseek(archivo,mbr.particiones[j].part_start,SEEK_SET);
+                fseek(fRaid,mbr.particiones[j].part_start,SEEK_SET);
+                for (i=0;i<mbr.particiones[j].part_size;i++) {
+                    fwrite(&c,1,1,archivo);
+                    fwrite(&c,1,1,fRaid);
+                }
+                escribirMBR(archivo,mbr);
+                escribirMBR(fRaid,mbr);
+                cout<<"Particion eliminada por completo"<<endl;
+            }else{
+                cout<<"No se eliminó la partición"<<endl;
             }
-            escribirMBR(archivo,mbr);
-            escribirMBR(fRaid,mbr);
-            cout<<"Particion eliminada por completo"<<endl;
+
         }else{
             //Buscar en las lógicas CHECK
             cout<<"No hay partición con ese nombre"<<endl;
@@ -530,8 +503,107 @@ void Administrador::eliminarParticion(Funcion *funcion){
     fclose(archivo);
     fclose(fRaid);
 }
-void Administrador::addParticion(Funcion *funcion){
 
+void Administrador::addParticion(Funcion *funcion){
+    string raidName = funcion->getRaidName();
+    char comando[100];
+    char comando2[100];
+    strcpy(comando,funcion->getAbsPath().data());
+    strcpy(comando2,funcion->getAbsPath().data());
+    strcat(comando,raidName.data());
+    strcat(comando2,funcion->fileName.data());
+    FILE *archivo = fopen(comando,"rb+");
+    FILE *fRaid = fopen(comando2,"rb+");
+    int add;
+    if(funcion->unit=='b'){
+        add = funcion->add;
+    }else if(funcion->unit=='k'){
+        add = funcion->add*TAMANOBYTE;
+    }else {
+        add = funcion->add*TAMANOBYTE*TAMANOBYTE;
+    }
+    int j = -1;
+    if(funcion->add>0){
+        MBR mbr = leerMBR(archivo);
+        int i;
+        for (i = 0;i<4;i++) {
+
+            if(funcion->nombre.compare((mbr.particiones[i].part_name))==0){
+
+                j=i;
+                break;
+            }
+        }
+        if(j!=-1){
+            int espacio = getEspacio(mbr.particiones[j],archivo,add);
+
+            if(espacio !=-1){
+                char c;
+                mbr.particiones[j].part_size+=add;
+                if(mbr.particiones[j].part_type=='p')
+                    c = 'x';
+                else
+                    c = 'y';
+                fseek(archivo,mbr.particiones[j].part_start,SEEK_SET);
+                fseek(fRaid,mbr.particiones[j].part_start,SEEK_SET);
+                for (i=0;i<mbr.particiones[j].part_size;i++) {
+                    fwrite(&c,1,1,archivo);
+                    fwrite(&c,1,1,fRaid);
+                }
+                escribirMBR(archivo,mbr);
+                escribirMBR(fRaid,mbr);
+                cout<<"Particion eliminada por completo"<<endl;
+            }else{
+                cout<<"No hay espacio suficiente después de la partición"<<endl;
+            }
+
+        }else{
+            //Buscar en las lógicas CHECK
+            cout<<"No hay partición con ese nombre"<<endl;
+        }
+    }else{
+        MBR mbr=leerMBR(archivo);
+        bool logica=false;
+        int j;
+        for (int i =0;i<4;i++) {
+            if(funcion->nombre.compare((mbr.particiones[i].part_name))==0){
+                j=i;
+                break;
+            }
+        }
+        if(mbr.particiones[j].part_size+add>0){
+            char c='0';
+            fseek(archivo,mbr.particiones[j].part_size+add,SEEK_SET);
+            fseek(fRaid,mbr.particiones[j].part_size+add,SEEK_SET);
+
+            for (int i = 0;i<add*-1;i++) {
+                fwrite(&c,1,1,archivo);
+                fwrite(&c,1,1,fRaid);
+            }
+        }else{
+            cout<<"La partición no puede quedar vacía después de eliminar tamaño"<<endl;
+        }
+        escribirMBR(archivo,mbr);
+        escribirMBR(fRaid,mbr);
+
+    }
+    fclose(archivo);
+    fclose(fRaid);
+}
+
+int Administrador::getEspacio(Particion particion, FILE *archivo, int add){
+    int espacio = 1;
+    char a;
+    fseek(archivo,particion.part_start+particion.part_size,SEEK_SET);
+    for (int i=0;i<add;i++) {
+        fread(&a,1,1,archivo);
+        if(a!='0'){
+            espacio = -1;
+             break;
+        }
+    }
+
+    return espacio;
 }
 
 int Administrador::valExtension(Funcion*funcion){
@@ -550,11 +622,16 @@ int Administrador::valExtension(Funcion*funcion){
 void Administrador::eliminarDisco(Funcion *funcion){
     if(funcion->opciones[3]==1){
         /*Eliminar el disco*/
-        const char* dosPuntosUve=funcion->path.data();
-        if(remove(dosPuntosUve)==0){
-            cout<<"Se eliminó "<<funcion->fileName<<" con exito"<<endl;
-        }else{
-            cout<<"Error al eliminar disco en: "<<funcion->path<<endl;
+        string respuesta;
+        cout<<"Esta seguro que quiere eliminar este disco? s/n"<<endl;
+        cin>>respuesta;
+        if(respuesta.compare("s")==0||respuesta.compare("S")==0){
+            const char* dosPuntosUve=funcion->path.data();
+            if(remove(dosPuntosUve)==0){
+                cout<<"Se eliminó "<<funcion->fileName<<" con exito"<<endl;
+            }else{
+                cout<<"Error al eliminar disco en: "<<funcion->path<<endl;
+            }
         }
     }else {
         cout<<"Error, no ingresó el parametro path"<<endl;
@@ -601,11 +678,13 @@ void Administrador::desmontarDisco(Funcion *funcion){
 
 void Administrador::reporteMBR(Funcion *funcion, MBR mbr){
     FILE* archivo = fopen("/home/mia/Reportes/mbr.dot","w");
+    char hora[128];
+    horaAString(hora,mbr.mbr_fecha_creacion);
     fprintf(archivo,"Digraph g{ \n node[shape = record];\n");
     fprintf(archivo, "struct1[shape = record, label = \"{");
     fprintf(archivo,"{  MBR  |    }|");
     fprintf(archivo,"{mbr_tamaño | %d }|",mbr.mbr_tamano);
-    fprintf(archivo,"{mbr_fecha_creacion | %s}|",mbr.mbr_fecha_creacion);
+    fprintf(archivo,"{mbr_fecha_creacion | %s}|",hora);
     fprintf(archivo,"{mbr_disk_signature | %d}|",mbr.mbr_disk_signature);
     int i = 0;
     for(i= 0;i<4;i++){
@@ -659,7 +738,12 @@ void Administrador::reporteMBR(Funcion *funcion, MBR mbr){
     fclose(archivo);
     generarReporte(funcion,"mbr");
 }
-
+void Administrador::horaAString(char* output,time_t t){
+    struct tm *tlocal = localtime(&t);
+    char autput[128];
+    strftime(autput,128,"%d/%m/%y %H:%M:%S",tlocal);
+    strcpy(output,autput);
+}
 void Administrador::reporteDisco(Funcion* funcion,MBR mbr){
     FILE* archivo = fopen("/home/mia/Reportes/discoRep.dot","w");
     NodoParticion* part = listaDisco->existeId(funcion->id[0]);
@@ -681,10 +765,73 @@ void Administrador::reporteDisco(Funcion* funcion,MBR mbr){
 
 void Administrador::discoInterno(int bitActual, MBR mbr, FILE *archivo, NodoParticion *part){
 
+    int bandera = 0;
+    EBR ebr;
+    int i;
+    int tamanoMBR = mbr.mbr_tamano;
+    //Escribir particion
+    for (i = 0;i<4;i++) {
+        if(mbr.particiones[i].part_status!='d'){
+            if(mbr.particiones[i].part_start == bitActual){
+                bitActual+=mbr.particiones[i].part_size;
+                bandera=10;
+                if(mbr.particiones[i].part_type=='e'){
+                    if(hayLogicas(part->path)){
+                        fprintf(archivo,"subgraph sub{\n");
+                        fprintf ( archivo, "extendida [label=\"Extendida(logicas ) \n %f \"];",(double(mbr.particiones[i].part_size)/double(mbr.mbr_tamano))*100.00);
+                        FILE* f = fopen(part->path,"rb+");
+                        fseek(f,mbr.particiones[i].part_start,SEEK_SET);
+                        fread (&ebr, sizeof(ebr), 1,f);
+                        fclose(f);
+                        discoEBR(i,mbr,archivo,part,ebr);
+                        fprintf(archivo,"}");
+                    }else{
+                        fprintf ( archivo, "extendida [label=\"Extendida(vacia) \n %f \% \"];",(double(mbr.particiones[i].part_size)/double(mbr.mbr_tamano))*100.00);
+                    }
+                }else{
+                    fprintf(archivo,"primaria%d [label=\"primaria(%s)(%f \%)\n %d  \"];\n",i,mbr.particiones[i].part_name,((double(mbr.particiones[i].part_size)/double(mbr.mbr_tamano))*100.00),mbr.particiones[i].part_size);
+                }
+                break;
+            }
+        }
+    }
+    //Escribir bloque libre
+    int respaldo = 2147483647;
+    if(bandera==0){
+        fprintf(archivo,"libre[label=\"libre\"];\n");
+        respaldo = bitActual;
+        for (i = 0;i<4;i++) {
+            if(bitActual<mbr.particiones[i].part_start){
+                respaldo = mbr.particiones[i].part_start;
+                fprintf(archivo,"libre%d [label=\"libre \\n %f \% \"];\n",i,(double(mbr.particiones[i].part_size)/double(mbr.mbr_tamano))*100);
+                bandera=11;
+            }else if(((bitActual<mbr.particiones[i].part_start)&&(respaldo>mbr.particiones[i].part_start))||(bandera==0)){
+                respaldo = mbr.particiones[i].part_start;
+                fprintf(archivo,"libre%d [label=\"libre \\n %f \% \"];\n",i,(double(mbr.particiones[i].part_size)/double(mbr.mbr_tamano))*100);
+                bandera=11;
+            }
+        }
+    }
+    if((bandera==10)){
+        discoInterno(bitActual,mbr,archivo,part);
+    }else if(bitActual<respaldo){
+        discoInterno(respaldo,mbr,archivo,part);
+    }
 }
 
-void Administrador::discoEBR(int bitActual, MBR mbr, FILE *archivo, NodoParticion *part, EBR ebr){
-
+void Administrador::discoEBR(int posicion, MBR mbr, FILE *archivo, NodoParticion *part, EBR ebr){
+    float tam = mbr.mbr_tamano;
+    if(ebr.part_status!='d'){
+        fprintf(archivo,"logica%s [label=\"logica(%s)(%f \%)\n %d  \"];\n",ebr.part_name,ebr.part_name,((double(mbr.particiones[posicion].part_size)/double(mbr.mbr_tamano))*100.00),ebr.part_size);
+        if(ebr.part_next > 0)
+        {
+            FILE* f = fopen(part->path,"rb+");
+            fseek(f,ebr.part_next,SEEK_SET);
+            fread (&ebr, sizeof(ebr), 1,f);
+            fclose(f);
+            discoEBR(posicion,mbr,archivo,part,ebr);
+        }
+    }
 }
 
 void Administrador::reportes(Funcion *funcion){
@@ -701,7 +848,7 @@ void Administrador::reportes(Funcion *funcion){
             MBR mbr;
             mbr = getListaMBR2(funcion);
             if(mbr.mbr_disk_signature!=-1){
-              //  reporteDisco(funcion,mbr);
+                reporteDisco(funcion,mbr);
             }
             else
                 cout<<"No se encontró partición montada con ese id"<<endl;
@@ -838,5 +985,138 @@ int Administrador::getWFByte(FILE *file, int tamano){
         }
     }
     return retorno;
+}
+
+void Administrador::escribirMBR(FILE *file, MBR mbr){
+    rewind(file);
+    fwrite(&mbr,sizeof (MBR),1,file);
+}
+
+MBR Administrador::leerMBR(FILE *file){
+   MBR mbr;
+   fseek(file,0,SEEK_SET);
+   fread(&mbr,sizeof (MBR),1,file);
+   return mbr;
+}
+
+EBR Administrador::getLogica(FILE *file, char *nombre){
+    EBR ebr;
+    ebr.part_size=-1;
+    ebr.part_status = 'd';
+    MBR mbr;
+    fseek(file,0,SEEK_SET);
+    fread(&mbr,sizeof (MBR),1,file);
+    int indiceEBR=-1;
+    indiceEBR= existeEBR(mbr);
+    if(indiceEBR!=-1){
+        int indice = mbr.particiones[indiceEBR].part_start;
+        fseek(file,indice,SEEK_SET);
+        fread(&ebr,sizeof (EBR),1,file);
+        while(ebr.part_next!=-1){
+            if(strcmp(nombre,ebr.part_name)==0){
+                return ebr;
+            }
+            fseek(file,ebr.part_next,SEEK_SET);
+            fread(&ebr,sizeof (EBR),1,file);
+        }
+    }
+    ebr.part_size=-1;
+    ebr.part_status = 'd';
+    return ebr;
+}
+
+Particion Administrador::getParticion(char *path, char *nombre){
+    FILE * archivo = fopen(path,"rb+");
+    Particion p;
+    if(archivo!=nullptr){
+        MBR mbr;
+        fseek(archivo,0,SEEK_SET);
+        fread(&mbr,sizeof (MBR),1,archivo);
+        int i;
+        for (i = 0;i<4;i++) {
+            if(strcmp(nombre,mbr.particiones[i].part_name)==0){
+                fclose(archivo);
+                return mbr.particiones[i];
+            }
+        }
+        EBR ebr = getLogica(archivo,nombre);
+        if(ebr.part_size>0){
+            p.part_fit=ebr.part_fit;
+            p.part_size = ebr.part_size;
+            strcpy(p.part_name,ebr.part_name);
+            p.part_start = ebr.part_start;
+            p.part_type='l';
+            p.part_status = ebr.part_status;
+            return p;
+        }
+        fclose(archivo);
+        p.part_start=-1;
+        p.part_status='d';
+        return p;
+    }
+}
+
+int Administrador::existeEBR(MBR mbr){
+    for (int i=0;i<4;i++) {
+        if(mbr.particiones[i].part_type=='e'){
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool Administrador::hayLogicas(char *path){
+    EBR ebr;
+    MBR mbr;
+    FILE* archivo;
+    archivo=fopen(path,"rb+");
+    fseek(archivo,0,SEEK_SET);
+    fread(&mbr,sizeof (MBR),1,archivo);
+    int indiceEBR=-1;
+    indiceEBR= existeEBR(mbr);
+    if(indiceEBR!=-1){
+        int indice = mbr.particiones[indiceEBR].part_start;
+        fseek(archivo,indice,SEEK_SET);
+        fread(&ebr,sizeof (EBR),1,archivo);
+        if(ebr.part_size>0){
+            return true;
+        }
+    }
+    return false;
+}
+
+MBR Administrador::getListaMBR2(Funcion *funcion){
+    MBR mbr;
+    char id[4];
+    strcpy(id,funcion->id[0].data());
+    NodoParticion *part = listaDisco->existeId(id);
+    if(part!=nullptr){
+        FILE* archivo;
+        archivo = fopen(part->path,"rb+");
+        if(archivo!=nullptr){
+            fseek(archivo,0,SEEK_SET);
+            fread(&mbr,sizeof (MBR),1,archivo);
+            return mbr;
+
+        }
+        fclose(archivo);
+    }else{
+        cout<<"Error, path de particion montada no abrió";
+    }
+
+    mbr.mbr_disk_signature=-1;
+    return mbr;
+}
+
+void Administrador::crearDirectorioLinux(string path, Funcion *funcion){
+    string absPath;
+    char comando1[200];
+    string tokenActual;
+    strcpy(comando1,"mkdir '");
+    absPath=funcion->getAbsPath();
+    strcat(comando1,absPath.data());
+    strcat(comando1,"' -p");
+    cout<<"Comando a ejecutar: "<<comando1<<endl;
+    system(comando1);
 }
 

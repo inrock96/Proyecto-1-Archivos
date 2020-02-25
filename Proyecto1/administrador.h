@@ -58,12 +58,13 @@ public:
     void repSuperBloque(Funcion* funcion);
     void repLS(Funcion* funcion);
 private:
+    int getEspacio(Particion particion,FILE* archivo,int add);
     int valExtension(Funcion*funcion);
     string getAbsPath(Funcion *funcion);
-    MBR leerMBR(FILE* file);
-    int getFFByte(FILE* file, int tamano);
     int getBFByte(FILE* file, int tamano);
+    int getFFByte(FILE* file, int tamano);
     int getWFByte(FILE* file, int tamano);
+    MBR leerMBR(FILE* file);
     int getFFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
     int getWFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
     int getBFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);
@@ -91,7 +92,7 @@ private:
     void horaAString(char* output,time_t t);
     //Usuario *getUsuario(string usr, NodoParticion* part);
     void discoInterno(int bitActual, MBR mbr,FILE* archivo,NodoParticion* part);
-    void discoEBR(int bitActual, MBR mbr,FILE* archivo,NodoParticion* part,EBR ebr);
+    void discoEBR(int posicion, MBR mbr,FILE* archivo,NodoParticion* part,EBR ebr);
     bool hayLogicas(char* path);
     int numeroDirectorios(char* path);
     bool estaLoggeado(char* id);
