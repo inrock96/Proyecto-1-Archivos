@@ -4,7 +4,8 @@
 #include "funcion.h"
 #include "listadisco.h"
 #include "Estructuras.h"
-
+#include "math.h"
+#include "usuario.h"
 class Administrador
 {
 public:
@@ -80,17 +81,15 @@ private:
     string getAbsPath(string path,Funcion*funcion);
     void generarReporte(Funcion *funcion,string nombreRep);
     int numeroEstructuras(int tamanoPart);
-    //SuperBoot crearSuperBoot(int bit_inicio,int tamano,NodoParticion *part);
+    SuperBloque crearSuperBloque(int bit_inicio,int tamano,NodoParticion *part);
     void escribirBitMap(int inicio,int n,FILE* archivo);
     int getNumeroBloques(int size);
     void escribirBloques(int noBloques, FILE* archivo,char* contenido, int tamano);
     int getUltimoNBloques(int cont);
-//    void escribirSuperBoot(char* path,SuperBoot super);
-//    void escribirCopiaSuperBoot(char* path,SuperBoot super);
-//    SuperBoot getCopiaSuperBoot(NodoParticion* part);
-//    SuperBoot getSuperBloque(char* ide);
+    void escribirSuperBloque(char* path,SuperBloque super);
+    SuperBloque getSuperBloque(char* ide);
     void horaAString(char* output,time_t t);
-    //Usuario *getUsuario(string usr, NodoParticion* part);
+    Usuario *getUsuario(string usr, NodoParticion* part);
     void discoInterno(int bitActual, MBR mbr,FILE* archivo,NodoParticion* part);
     void discoEBR(int posicion, MBR mbr,FILE* archivo,NodoParticion* part,EBR ebr);
     bool hayLogicas(char* path);
@@ -100,15 +99,15 @@ private:
 //    void crearPadres(SuperBoot super, int posBtimap, string nombresDir[],int posActualCarpeta, int numeroCarpetas, NodoParticion* part,int nEstructuras);
 //    void insertarCarpeta(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
     int getFirstFreeBit(int inicio,int nEstruct,FILE* archivo);
-    int getPosBitacora(int inicio, int nEstruct,FILE* archivo);
+    int getPosJournal(int inicio, int nEstruct,FILE* archivo);
     string getFileName(char path[]);
 //    void crearFile(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
 //    void insertarArchivo(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
-//    void crearInodo(SuperBoot super,Arbol_Virtual_Directorio nodoAvd,Detalle_Directorio detalle,int nEstructuras,NodoParticion* part,int posBitmap,int size, char cont[],int apInodo,char nombre[]);
+    //void crearInodo(SuperBloque super,Arbol_Virtual_Directorio nodoAvd,Detalle_Directorio detalle,int nEstructuras,NodoParticion* part,int posBitmap,int size, char cont[],int apInodo,char nombre[]);
 //    void insertarInodo(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
 //    void crearBloque(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
-//    void insertarBloque(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
-   char * toArray(int numero);
+    void insertarBloque(SuperBloque super,iNodo nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
+    char * toArray(int numero);
 //    void escribirJournal(Bitacora bitacora,char path[],SuperBoot super, int nEstructuras);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);

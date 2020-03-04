@@ -4,9 +4,317 @@ Administrador::Administrador()
 {
     noDiscos = 0;
     this->listaDisco = new ListaDisco();
-//    this->sesion = new Sesion();
+    this->sesion = new Sesion();
 
 }
+
+int Administrador::numeroEstructuras(int tamanoPart){
+    double n;
+    n = (tamanoPart-(sizeof (SuperBloque)))/
+            (27+sizeof (Journal)+sizeof (iNodo)
+            +(20*64));
+
+    return floor(n);
+}
+
+SuperBloque Administrador::crearSuperBloque(int bit_inicio, int tamano, NodoParticion *part){
+    SuperBoot sb;
+    int nEstructuras = numeroEstructuras(tamano);
+    //Llenar superboot
+    strcpy(sb.sb_nombre_hd,part->nombrePart);
+    sb.sb_arbol_virtual_count=1;
+    sb.sb_detalle_directorio_count = 1;
+    sb.sb_inodos_count = 1;
+    sb.sb_bloques_count = 2;
+    sb.sb_arbol_virtual_free = nEstructuras - 1;
+    sb.sb_detalle_directorio_free = nEstructuras -1;
+    sb.sb_inodos_free = (5*nEstructuras)-1;
+    sb.sb_bloques_free = (20*nEstructuras)-3;
+    sb.sb_date_creacion = time(0);
+    sb.sb_magic_num=201504002;
+    sb.sb_size_struct_bloque=sizeof (Bloque);
+    sb.sb_size_struct_tabla_inodo=sizeof (i_nodo);
+    sb.sb_size_struct_arbol_directorio=sizeof (Arbol_Virtual_Directorio);
+    sb.sb_size_struct_detalle_directorio=sizeof (Detalle_Directorio);
+    sb.sb_montajes_count = 0;
+    sb.sb_part_start = bit_inicio;
+    sb.sb_ap_bitmap_arbol_directorio = bit_inicio+sizeof (SuperBoot);
+    sb.sb_ap_arbol_directorio = sb.sb_ap_bitmap_arbol_directorio+nEstructuras;
+    sb.sb_ap_bitmpa_detalle_directorio = sb.sb_ap_arbol_directorio + (nEstructuras*sizeof (Arbol_Virtual_Directorio));
+    sb.sb_ap_detalle_directorio = sb.sb_ap_bitmpa_detalle_directorio + nEstructuras;
+    sb.sb_ap_bitmap_tabla_inodo = sb.sb_ap_detalle_directorio + (nEstructuras*sizeof (Detalle_Directorio));
+    sb.sb_ap_tabla_inodo = sb.sb_ap_bitmap_tabla_inodo + nEstructuras*5;
+    sb.sb_ap_bitmap_bloques = sb.sb_ap_tabla_inodo + (nEstructuras*5*sizeof (i_nodo));
+    sb.sb_ap_bloques = sb.sb_ap_bitmap_bloques +(nEstructuras*20);
+    sb.sb_ap_log = sb.sb_ap_bloques + (nEstructuras*20*sizeof (Bloque));
+    sb.sb_first_free_bit_bloques=2;
+    sb.sb_first_free_bit_tabla_inodo=1;
+    sb.sb_first_free_bit_arbol_directorio=1;
+    sb.sb_first_free_bit_detalle_directorio=1;
+
+    return  sb;
+}
+
+void Administrador::formatear(Funcion *funcion){
+    if(true/*fs=3*/){
+        if(funcion->opciones[8]==1){
+            int format = 1;
+            if(funcion->opciones[4]==1){
+                if(funcion->eliminar.compare("fast")==0)
+                    format=2;
+            }
+            NodoParticion* part = listaDisco->existeId(funcion->id[0]);
+            if(part!=nullptr){
+                char comando [100];
+                strcpy(comando,part->path);
+                cout<<"particion en path a formatear"<<part->path<<endl;
+                FILE* archivo = fopen(comando,"rb+");
+                if(archivo!=NULL){
+                    int nEstructuras =numeroEstructuras(part->tamano);
+                    SuperBloque sb = crearSuperBloque(part->byteInicio,part->tamano,part);
+                    //Escribir superboot
+                    fseek(archivo,part->byteInicio,SEEK_SET);
+                    fwrite(&sb,sizeof (SuperBloque),1,archivo);
+                    //Escribir copia superboot
+                    //Escribir bitmap Inodo
+                    MBR mbr = leerMBR(archivo);
+                    int posPart=-1;
+                    for (int i=0;i<4;i++) {
+                        if(strcmp(mbr.particiones[i].part_name,part->nombrePart)==0){
+                            posPart = i;
+                            break;
+                        }
+                    }
+                    mbr.particiones[posPart].part_status='f';
+                    int i;
+                    //Escribe journal
+                    Journal journal;
+                    journal.log_tipo=-1;
+                    journal.log_fecha = time(0);
+                    journal.contenido = 1;
+                    journal.log_tipo_operacion=2;
+                    limpiarVar(journal.log_path,100);
+                    limpiarVar(journal.log_nombre,24);
+                    limpiarVar(journal.log_propietario,16);
+                    int prueba = sb.s_block_start;
+                    for (i=0;i<nEstructuras;i++) {
+                        fseek(archivo,prueba,SEEK_SET);
+                        fwrite(&journal,sizeof (Journal),1,archivo);
+                        prueba+=sizeof (Journal);
+                    }
+                    fclose(archivo);
+                    archivo = fopen(part->path,"rb+");
+                    prueba = sb.s_journal_start;
+                    for (i=0;i<nEstructuras;i++) {
+                        Journal jour;
+                        fseek(archivo,prueba,SEEK_SET);
+                        fread(&jour,sizeof (Journal),1,archivo);
+                        prueba+=sizeof (Journal);
+                    }
+                    fclose(archivo);
+                    archivo = fopen(part->path,"rb+");
+                    if(format!=1){
+                        //Fast
+                    }else{
+                        //Full
+                        //Escribir bloques
+                        BloqueArchivo b;
+                        int i;
+                        strcpy(b.db_data,"vacio");
+                        fseek(archivo,super.sb_ap_bloques,SEEK_SET);
+                        int pruebB = super.sb_ap_bloques;
+                        for (i = 0;i<nEstructuras*20;i++) {
+                            fseek(archivo,pruebB,SEEK_SET);
+                            fwrite(&b,sizeof (Bloque),1,archivo);
+                            pruebB+=sizeof (Bloque);
+                        }
+                        //Escribir inodos
+                        i_nodo inodo;
+                        strcpy(inodo.i_id_proper,"root");
+                        inodo.i_count_inodo=0;
+                        inodo.i_ap_indirecto=-1;
+                        inodo.i_size_archivo=0;
+                        inodo.i_array_bloques[0]=0;
+                        inodo.i_array_bloques[1]=0;
+                        inodo.i_array_bloques[2]=0;
+                        inodo.i_array_bloques[3]=0;
+                        inodo.i_count_bloques_asignados=0;
+                        int pruebainodo = super.sb_ap_tabla_inodo;
+                        fseek(archivo,super.sb_ap_tabla_inodo,SEEK_SET);
+                        for (i=0;i<nEstructuras*5;i++) {
+                            fseek(archivo,pruebainodo,SEEK_SET);
+                            fwrite(&inodo,sizeof (i_nodo),1,archivo);
+                            pruebainodo+= sizeof (i_nodo);
+                        }
+                        //
+                    }
+                    escribirBitMap(sb.sb_ap_bitmap_arbol_directorio,nEstructuras,archivo);
+                    //Escribir bitmap DD
+                    escribirBitMap(sb.sb_ap_bitmpa_detalle_directorio,nEstructuras,archivo);
+                    //Escribir bitmap Inodo
+                    escribirBitMap(sb.sb_ap_bitmap_tabla_inodo,nEstructuras*5,archivo);
+                    //Escribir bitmap Bloque
+                    escribirBitMap(sb.sb_ap_bitmap_bloques,nEstructuras*20,archivo);
+
+
+                    //Se crea la raíz del árbol de directorio
+                    Arbol_Virtual_Directorio raiz;
+                    raiz.avd_fecha_creacion = time(0);
+                    strcpy(raiz.avd_nombre_directorio,"raiz");
+                    for (i=0;i<6;i++) {
+                        raiz.avd_ap_array_subdirectorios[i]=-1;
+                    }
+                    raiz.avd_ap_detalle_directorio=0;
+                    raiz.avd_ap_arbol_virtual_directorio=-1;
+                    strcpy(raiz.avd_proper,"root");
+                    raiz.lectura = 0;
+                    raiz.escritura = 0;
+                    raiz.exe = 0;
+                    //Se crea el detalle de directorio del avd donde se guardan los usuarios
+                    Detalle_Directorio d_raiz;
+                    d_raiz.dd_ap_detalle_directorio=-1;
+                    for (int j=0;j<5;j++) {
+                        d_raiz.dd_array_files[j].dd_file_ap_inodo=-1;
+                    }
+                    strcpy(d_raiz.dd_array_files[0].dd_file_nombre,"users.txt");
+                    d_raiz.dd_array_files[0].dd_file_date_creation=time(0);
+                    d_raiz.dd_array_files[0].dd_file_date_modification=time(0);
+                    d_raiz.dd_array_files[0].dd_file_ap_inodo=0;
+
+                    //se crea el inodo para el archivo
+                    char users[100];
+                    strcpy(users,"1,G,root\n1,U,root,root,201504002\n");
+                    int cont = 0;
+                    while (users[cont]!=NULL) {
+                        cont++;
+                    }
+                    int nbloques = getNumeroBloques(cont);
+                    int nultimo = getUltimoNBloques(cont);
+                    i_nodo iraiz;
+                    strcpy(iraiz.i_id_proper,"root");
+                    iraiz.i_count_inodo=0;
+                    iraiz.i_size_archivo = cont;
+                    iraiz.i_count_bloques_asignados=nbloques;
+                    iraiz.i_ap_indirecto=-1;
+                    for (i=0;i<4;i++) {
+                        iraiz.i_array_bloques[i]=-1;
+                    }
+                    iraiz.exe=0;
+                    iraiz.lectura=0;
+                    iraiz.excritura=0;
+                    //Se llenan los bloques de información
+                    int ind = 0;
+                    int posObtenidaDeBitmap=0;
+                    for (i = 0;i<nbloques;i++) {
+                        int inicioBloques = super.sb_ap_bloques;
+                        Bloque bloque;
+                        for (int i=0;i<posObtenidaDeBitmap;i++) {
+                            inicioBloques= inicioBloques+sizeof (Bloque);
+                        }
+                        fseek(archivo,inicioBloques,SEEK_SET);
+                        fread(&bloque,sizeof (Bloque),1,archivo);
+
+                        if(i==nbloques-1){
+                            for(int i = 0;i<nultimo;i++){
+                                bloque.db_data[i]=users[ind];
+                                ind++;
+                            }
+                            bloque.db_data[nultimo]='\0';
+                        }else{
+                            for (int i = 0;i<24;i++) {
+                                bloque.db_data[i]=users[ind];
+                                ind++;
+                            }
+                            bloque.db_data[24]='\0';
+                        }
+                        //Escribir bloque en el disco
+                        inicioBloques = super.sb_ap_bloques;
+                        for(i = 0; i<posObtenidaDeBitmap;i++){
+                            inicioBloques = inicioBloques+sizeof (Bloque);
+                        }
+                        for (i=0;i<4;i++) {
+                            if(iraiz.i_array_bloques[i]==-1){
+                                iraiz.i_array_bloques[i]=posObtenidaDeBitmap;
+                                i=4;
+                            }
+                        }
+
+                        fseek(archivo,inicioBloques,SEEK_SET);
+                        fwrite(&bloque,sizeof (Bloque),1,archivo);
+                        cout<<ftell(archivo)<<endl;
+                        int inicioBitmap = super.sb_ap_bitmap_bloques;
+                        char b1='1';
+                        for (i=0;i<posObtenidaDeBitmap;i++) {
+                            inicioBitmap = inicioBitmap+sizeof(char);
+                        }
+                        fseek(archivo,inicioBitmap,SEEK_SET);
+                        fwrite(&b1,sizeof (char),1,archivo);
+                        posObtenidaDeBitmap++;
+                    }
+                    //Bitacora
+
+                    //Log raiz
+                    Bitacora braiz;
+                    Bitacora busers;
+                    braiz.log_tipo=0;
+
+                    braiz.log_fecha = time(0);
+                    strcpy(braiz.log_nombre,"raiz");
+                    strcpy(braiz.log_propietario,"root");
+                    braiz.contenido = 1;
+                    braiz.log_tipo_operacion=0;
+                    strcpy(braiz.log_path,"/");
+
+                    //Log usuarios
+                    busers.log_path[0]='/';
+                    busers.log_fecha = time(0);
+                    busers.log_tipo = 1;
+                    busers.log_tipo_operacion=0;
+                    strcpy(busers.log_nombre,"users.txt");
+                    strcpy(busers.log_path,"/");
+                    strcpy(busers.log_propietario,"root");
+                    busers.contenido=2;
+                    //escribir todo
+                    //bitmap avd
+                    char b1 ='1';
+                    fseek(archivo,super.sb_ap_bitmap_arbol_directorio,SEEK_SET);
+                    fwrite(&b1,1,1,archivo);
+                    //escribir bitmap detalle
+                    fseek(archivo,super.sb_ap_bitmpa_detalle_directorio,SEEK_SET);
+                    fwrite(&b1,1,1,archivo);
+                    //escribir bitmap inodo
+                    fseek(archivo,super.sb_ap_bitmap_tabla_inodo,SEEK_SET);
+                    fwrite(&b1,1,1,archivo);
+                    //escribir raiz avd
+                    fseek(archivo,super.sb_ap_arbol_directorio,SEEK_SET);
+                    fwrite(&raiz,sizeof(Arbol_Virtual_Directorio),1,archivo);
+                    //escribir detalle
+                    fseek(archivo,super.sb_ap_detalle_directorio,SEEK_SET);
+                    fwrite(&d_raiz,sizeof (Detalle_Directorio),1,archivo);
+                    //escribir inodo
+                    fseek(archivo,super.sb_ap_tabla_inodo,SEEK_SET);
+                    fwrite(&iraiz,sizeof (i_nodo),1,archivo);
+
+                    int iniciobb = super.sb_ap_bloques;
+                    fseek(archivo,iniciobb,SEEK_SET);
+    //                for (int i =0;i<(4*5*nEstructuras);i++) {
+    //                    Bloque b;
+    //                    iniciobb=+iniciobb+sizeof (Bloque);
+    //                    cout<<"contenido bitmap: "<<b.db_data;
+    //                }
+                    fclose(archivo);
+                    escribirJournal(braiz,part->path,super,nEstructuras);
+                    escribirJournal(busers,part->path,super,nEstructuras);
+                    //fin
+                }
+            }
+        }
+    }else{
+        //ext2
+    }
+}
+
+
 
 void Administrador::crearDisco(Funcion *funcion){
     funcion->getName();
@@ -1097,7 +1405,6 @@ MBR Administrador::getListaMBR2(Funcion *funcion){
             fseek(archivo,0,SEEK_SET);
             fread(&mbr,sizeof (MBR),1,archivo);
             return mbr;
-
         }
         fclose(archivo);
     }else{

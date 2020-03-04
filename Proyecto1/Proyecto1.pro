@@ -22,7 +22,8 @@ SOURCES += \
         listaparticion.cpp \
         main.cpp \
         nododisco.cpp \
-        nodoparticion.cpp
+        nodoparticion.cpp \
+        usuario.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -37,4 +38,5 @@ HEADERS += \
     listadisco.h \
     listaparticion.h \
     nododisco.h \
-    nodoparticion.h
+    nodoparticion.h \
+    usuario.h

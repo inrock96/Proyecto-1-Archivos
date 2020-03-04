@@ -36,4 +36,67 @@ typedef struct NodoFit{
     NodoFit* siguiente;
 } NodoFit;
 
+
+typedef struct{
+    int s_filesystem_type;
+    unsigned int s_inodes_count;
+    unsigned int s_blocks_count;
+    unsigned int s_free_inodes_count;
+    unsigned int s_free_blocks_count;
+    int s_mtime;
+    int s_umtime;
+    int s_mnt_count;
+    const int s_magic = 0xef53;
+    unsigned int s_inode_size;
+    unsigned int s_block_size;
+    unsigned int s_first_ino;
+    unsigned int s_first_blo;
+    unsigned int s_bm_inode_start;
+    unsigned int s_bm_block_start;
+    unsigned int s_inode_start;
+    unsigned int s_block_start;
+    unsigned int s_journal_start;
+} SuperBloque;
+
+typedef struct{
+    int i_uid;  //UID USUARIO
+    int i_gid;  //GID GRUPO
+    int i_size;
+    time_t i_atime; //Lectura
+    time_t i_ctime; //Creacion
+    time_t i_mtime; //Modificacion
+    int i_block[15];
+    char i_type;     // 1 archivo 0 carpeta
+    int i_perm;     //Permisos 664
+
+} iNodo;
+
+typedef struct{
+    char log_tipo;
+    char log_tipo_operacion;
+    time_t log_fecha;
+    char log_nombre[16];
+    char log_path[128];
+    char contenido;
+    time_t j_ctime;
+    char log_propietario[11];
+    int control;
+} Journal;
+
+typedef struct{
+    char b_name[12];
+    int b_inodo;/*apuntador a un inodo asociado al archivo o carpeta*/
+} Content;
+typedef struct{
+    Content b_content[4];
+} BloqueCarpeta;
+
+typedef struct{
+    char b_content[64];
+} BloqueArchivo;
+
+typedef struct{
+    int b_pointers[16];
+} BloqueApuntador;
+
 #endif // ESTRUCTURAS_H
