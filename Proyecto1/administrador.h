@@ -6,6 +6,7 @@
 #include "Estructuras.h"
 #include "math.h"
 #include "usuario.h"
+#include "sesion.h"
 class Administrador
 {
 public:
@@ -13,7 +14,7 @@ public:
     ListaDisco *listaDisco;
     char cont[1000000];
     char pathTrampa[200];
-    //Sesion *sesion;
+    Sesion *sesion;
     Administrador();
     void crearDisco(Funcion *funcion);
     void eliminarDisco(Funcion *funcion);
@@ -48,13 +49,10 @@ public:
     void reporteMBR(Funcion* funcion,MBR mbr);
     void reporteDisco(Funcion* funcion,MBR mbr);
     void repJournaling(Funcion* funcion);
-    void repBMArbVirtual(Funcion* funcion);
-    void repBMDetalle(Funcion* funcion);
     void repBMBlock(Funcion* funcion);
     void repBMInode(Funcion* funcion);
-    void repDirectorio(Funcion* funcion);
-    void repTree_file(Funcion* funcion);
-    void repTree_Directorio(Funcion* funcion);
+    void repTree_Bloque(Funcion* funcion);
+    void repTree_Inodo(Funcion* funcion);
     void repTreeComplete(Funcion* funcion);
     void repSuperBloque(Funcion* funcion);
     void repLS(Funcion* funcion);
@@ -80,8 +78,8 @@ private:
     void crearDirectorioLinux(string path,Funcion*funcion);
     string getAbsPath(string path,Funcion*funcion);
     void generarReporte(Funcion *funcion,string nombreRep);
-    int numeroEstructuras(int tamanoPart);
-    SuperBloque crearSuperBloque(int bit_inicio,int tamano,NodoParticion *part);
+    int numeroEstructuras(int tamanoPart, int tipo);
+    SuperBloque crearSuperBloque(int bit_inicio,int tamano,NodoParticion *part,int tipo);
     void escribirBitMap(int inicio,int n,FILE* archivo);
     int getNumeroBloques(int size);
     void escribirBloques(int noBloques, FILE* archivo,char* contenido, int tamano);
@@ -108,7 +106,7 @@ private:
 //    void crearBloque(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
     void insertarBloque(SuperBloque super,iNodo nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
     char * toArray(int numero);
-//    void escribirJournal(Bitacora bitacora,char path[],SuperBoot super, int nEstructuras);
+    void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
 //    void definirAVDDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);

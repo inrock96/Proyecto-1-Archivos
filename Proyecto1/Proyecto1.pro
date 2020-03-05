@@ -23,6 +23,7 @@ SOURCES += \
         main.cpp \
         nododisco.cpp \
         nodoparticion.cpp \
+        sesion.cpp \
         usuario.cpp
 
 # Default rules for deployment.
@@ -39,4 +40,5 @@ HEADERS += \
     listaparticion.h \
     nododisco.h \
     nodoparticion.h \
+    sesion.h \
     usuario.h

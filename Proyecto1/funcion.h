@@ -19,6 +19,7 @@ public:
     bool r;
     bool p;
     bool rf;
+    int fs;
     string path;
     string eliminar;
     string nombre;

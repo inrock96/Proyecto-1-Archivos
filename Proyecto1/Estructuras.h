@@ -49,6 +49,8 @@ typedef struct{
     const int s_magic = 0xef53;
     unsigned int s_inode_size;
     unsigned int s_block_size;
+    unsigned int s_free_inode_count;
+    unsigned int s_free_block_count;
     unsigned int s_first_ino;
     unsigned int s_first_blo;
     unsigned int s_bm_inode_start;
@@ -67,7 +69,9 @@ typedef struct{
     time_t i_mtime; //Modificacion
     int i_block[15];
     char i_type;     // 1 archivo 0 carpeta
-    int i_perm;     //Permisos 664
+    char i_perm_escritura;
+    char i_perm_lectura;
+    char i_perm_ejecucion;//Permisos 664
 
 } iNodo;
 

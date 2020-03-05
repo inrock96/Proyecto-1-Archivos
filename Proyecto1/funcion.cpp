@@ -3,9 +3,10 @@
 Funcion::Funcion()
 {
     this->funcion=-1;
-    for (int i = 0;i<20;i++) {
+    for (int i = 0;i<21;i++) {
         opciones[i]=-1;
     }
+    this->fs = -1;
     this->size=-1;
     this->ugo=-1;
     this->add=-1;
@@ -97,7 +98,8 @@ void Funcion::mostrar(){
             cout<<"RF: "<<this->rf<<endl;
         }else if(this->opciones[i]==1&&i==19){
             cout<<"ruta: "<<this->ruta<<endl;
-        }
+        }else if(this->opciones[i]==1&&i==20)
+            cout<<"Fs: "<<this->fs<<endl;
 
         else{
         }
