@@ -1231,6 +1231,190 @@ void Administrador::discoEBR(int posicion, MBR mbr, FILE *archivo, NodoParticion
     }
 }
 
+void Administrador::repTree(Funcion *funcion){
+    char ide[5];
+    char hora1[128];
+    strcpy(ide,funcion->id[0].data());
+    SuperBloque sb = getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+    int i;
+    FILE* archivo = fopen("/home/mia/Reportes/arbol.dot","w");
+
+    int n = numeroEstructuras(part->tamano,sesion->tipo);
+    Bitmap bm_inodo[n];
+    leerBMInodo(sb.s_bm_inode_start,n,part->path,bm_inodo);
+
+    FILE* archivoTree = fopen(part->path,"rb+");
+    if(archivo!=NULL&&archivoTree!=NULL){
+        fseek(archivoTree,sb.s_inode_start,SEEK_SET);
+        fprintf(archivo,"digraph g{\nnode [shape=record];\n");
+        fprintf(archivo,"node [style=filled];");
+        fprintf(archivo,"edge [color=\"#A30015\"];\n");
+        fprintf(archivo,"rankdir=LR;\n");
+
+
+
+        iNodo inodo;
+        fread(&inodo,sizeof (iNodo),1,archivoTree);
+        horaAString(hora1,inodo.i_ctime);
+
+        fprintf(archivo,"inodo%d[label=\"",0);
+        fprintf(archivo,"inodo=%d|tamaño=%d|tipo=%c|idusr=%d",0,inodo.i_size,inodo.i_type,inodo.i_uid);
+        /*Recorrer punteritos*/
+        int j;
+        for (j = 0;j<12;j++) {
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"|{AD%d|<N%d>}",j,j);
+            }
+        }
+        for (j = 12;j<15;j++) {
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"|{AI%d|<N%d>}",j-11,j);
+            }
+        }
+        fprintf(archivo, "\",color=white,fillcolor=\"#A30015\",fontcolor=white];\n");
+
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                definirCarpetaTree(archivo,archivoTree,inodo.i_block[j],sb);
+            }
+        }
+        for (j=12;j<15;j++) {
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,0);
+            }
+        }
+
+
+        fprintf(archivo, "}\n");
+        fclose(archivo);
+        fclose(archivoTree);
+        generarReporte(funcion,"arbol");
+    }
+}
+
+void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
+    char* hora1;
+    iNodo inodo;
+    fseek(archivoTree,sb.s_inode_start+apActual*sizeof (inodo),SEEK_SET);
+    fread(&inodo,sizeof (iNodo),1,archivoTree);
+    horaAString(hora1,inodo.i_ctime);
+
+    fprintf(archivo,"inodo%d[label=\"",0);
+    fprintf(archivo,"inodo=%d|tamaño=%d|tipo=%c|idusr=%d",0,inodo.i_size,inodo.i_type,inodo.i_uid);
+    /*Recorrer punteritos*/
+    int j;
+    for (j = 0;j<12;j++) {
+        if(inodo.i_block[j]!=-1){
+            fprintf(archivo,"|{AD%d|<N%d>}",j,j);
+        }
+    }
+    for (j = 12;j<15;j++) {
+        if(inodo.i_block[j]!=-1){
+            fprintf(archivo,"|{AI%d|<N%d>}",j-11,j);
+        }
+    }
+    fprintf(archivo, "\",color=white,fillcolor=\"#A30015\",fontcolor=white];\n");
+    if(inodo.i_type==0){
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                definirCarpetaTree(archivo,archivoTree,inodo.i_block[j],sb);
+            }
+        }
+    }
+    else{
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                definirArchivoTree(archivo,archivoTree,inodo.i_block[j],sb);
+            }
+        }
+    }
+
+    for (j=12;j<15;j++) {
+        if(inodo.i_block[j]!=-1){
+            fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+            if(inodo.i_type==0)
+                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,0);
+            else
+                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,1);
+
+        }
+    }
+}
+
+void Administrador::definirCarpetaTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
+    BloqueCarpeta carpeta = getBloqueCarpeta(archivoTree,sb.s_block_start,apActual);
+    fprintf(archivo,"bloque%d[label=\"bloque%d",apActual,apActual);
+    int i;
+    for (i=0;i<4;i++) {
+        if(carpeta.b_content[i].b_inodo!=-1){
+            fprintf(archivo,"|{%s|<N%d>%i}",carpeta.b_content[i].b_name,i,carpeta.b_content[i].b_inodo);
+
+        }else{
+            fprintf(archivo,"|{--|<N%d>-1}",i);
+        }
+    }
+    fprintf(archivo, "\",color=white,fillcolor=\"#7A6C5D\",fontcolor=white];\n");
+    for (i = 0; i < 4; i++) {
+        if (carpeta.b_content[i].b_inodo != -1) {
+            fprintf(archivo, "\tbloque%i:N%i->I%i;\n", apActual, i, carpeta.b_content[i].b_inodo);
+            definirInodoTree(archivo,archivoTree,carpeta.b_content[i].b_inodo,sb);
+        }
+    }
+}
+
+void Administrador::definirArchivoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
+    BloqueArchivo bloque = getBloqueArchivo(archivoTree,sb.s_block_start,apActual);
+    fprintf(archivo,"bloque%d[label\"Bloque%d",apActual,apActual);
+    char blocazo[65];
+    strcpy(blocazo,bloque.b_content);
+    fprintf(archivo,"|%s",blocazo);
+    fprintf(archivo, "\",color=white,fillcolor=#2A3D45,fontcolor=white];\n");
+}
+
+void Administrador::definirIndirectoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
+
+    fprintf(archivo, "\",color=white,fillcolor=#FFCF99,fontcolor=white];\n");
+}
+
+BloqueArchivo Administrador::getBloqueArchivo(FILE *archivo, int inicio, int pos){
+    BloqueArchivo b;
+    b.b_content[0]='0';
+    if(archivo){
+        fseek(archivo,inicio+pos*sizeof (BloqueArchivo),SEEK_SET);
+        fread(&b,sizeof (BloqueArchivo),1,archivo);
+    }
+    return b;
+}
+
+BloqueCarpeta Administrador::getBloqueCarpeta(FILE* archivo,int inicio,int pos){
+    BloqueCarpeta b;
+    b.b_content[0].b_inodo=-1;
+    if(archivo){
+        fseek(archivo,inicio+pos*sizeof (BloqueCarpeta),SEEK_SET);
+        fread(&b,sizeof (BloqueCarpeta),1,archivo);
+    }
+    return b;
+}
+
+void Administrador::leerBMInodo(int inicio, int n, char *path, Bitmap *bmInodo){
+    FILE *f;
+    if((f = fopen(path,"rb+"))!=NULL){
+        int j;
+        fseek(f,inicio,SEEK_SET);
+        for (j=0;j<n;j++) {
+            fread(&bmInodo[j],sizeof (Bitmap),1,f);
+        }
+        fclose(f);
+    }else{
+        cout<<"Error al abrir ruta"<<endl;
+    }
+}
+
 void Administrador::reportes(Funcion *funcion){
     if(funcion->opciones[6]==1&&funcion->opciones[3]==1&&funcion->opciones[8]==1){
         if(funcion->nombre.compare("mbr")==0){
@@ -1249,28 +1433,24 @@ void Administrador::reportes(Funcion *funcion){
             }
             else
                 cout<<"No se encontró partición montada con ese id"<<endl;
-        }else if(funcion->nombre.compare("bitacora")==0){
-            //repJournaling(funcion);
-        }else if(funcion->nombre.compare("bm_arbdir")==0){
-            //repBMArbVirtual(funcion);
-        }else if(funcion->nombre.compare("bm_detdir")==0){
-            //repBMDetalle(funcion);
+        }else if(funcion->nombre.compare("journaling")==0){
+            repJournaling(funcion);
         }else if(funcion->nombre.compare("bm_inode")==0){
-            //repBMInode(funcion);
+            repBMInode(funcion);
         }else if(funcion->nombre.compare("bm_block")==0){
-            //repBMBlock(funcion);
-        }else if(funcion->nombre.compare("directorio")==0){
-            //repDirectorio(funcion);
-        }else if(funcion->nombre.compare("tree_file")==0){
-            //repTree_file(funcion);
-        }else if(funcion->nombre.compare("tree_directorio")==0){
-            //repTree_Directorio(funcion);
-        }else if(funcion->nombre.compare("tree_complete")==0){      //Primero
-            //repTreeComplete(funcion);
+            repBMBlock(funcion);
+        }else if(funcion->nombre.compare("file")==0){
+            repFile(funcion);
+        }else if(funcion->nombre.compare("inode")==0){
+            repInodo(funcion);
+        }else if(funcion->nombre.compare("block")==0){
+            repBlock(funcion);
+        }else if(funcion->nombre.compare("tree")==0){      //Primero
+            repTree(funcion);
         }else if(funcion->nombre.compare("sb")==0){        //fresh
-            //repSuperBloque(funcion);
+            repSuperBloque(funcion);
         }else if(funcion->nombre.compare("ls")==0){        //Hard
-            //repLS(funcion);
+            repLS(funcion);
         }
         else{
             cout<<"Error, ese reporte no existe papá"<<endl;

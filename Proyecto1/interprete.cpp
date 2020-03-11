@@ -313,6 +313,13 @@ void Interprete::ejecutar(string entrada){
                             tokenActual+=comando[contador];
                             contador++;
                         }
+                        if(opActual==20){
+                            while (esLetra(comando[contador])) {
+                                contador++;
+                            }
+                            funcion->fs= stoi(tokenActual);
+                            cout<<"El parametro fs tiene el valor: "<<funcion->fs<<endl;
+                        }
                         if(opActual==0){
                             funcion->size = stoi(tokenActual);
                             cout<<"El parametro size tiene el valor: "<<funcion->size<<endl;
@@ -374,34 +381,34 @@ void Interprete::ejecutar(string entrada){
                     ejecutarComando(funcion);     //Done
                     break;
                 case 7:
-                    //admin->formatear(funcion);     //Done
+                    admin->formatear(funcion);     //Done
                     break;
                 case 8:
-                    //admin->login(funcion);        //Mínimo
+                    admin->login(funcion);        //Mínimo
                     break;
                 case 9:
-                    //admin->logout(funcion);       //Mínimo
+                    admin->logout(funcion);       //Mínimo
                     break;
                 case 10:
-                    //admin->crearGrupo(funcion);   //Mínimo
+                    admin->crearGrupo(funcion);   //Mínimo
                     break;
                 case 11:
-                    //admin->eliminarGrupo(funcion);
+                    admin->eliminarGrupo(funcion);
                     break;
                 case 12:
-                    //admin->crearUsr(funcion);     //Mínimo
+                    admin->crearUsr(funcion);     //Mínimo
                     break;
                 case 13:
-                    //admin->eliminarUsr(funcion);
+                    admin->eliminarUsr(funcion);
                     break;
                 case 14:
                     //admin->chmod(funcion);
                     break;
                 case 15:
-                    //admin->crearArchivo(funcion); //Mínimo
+                    admin->crearArchivo(funcion); //Mínimo
                     break;
                 case 16:
-                    //admin->catArchivo(funcion);//Mínimo
+                    admin->catArchivo(funcion);//Mínimo
                     break;
                 case 17:
                     //admin->eliminarArchivo(funcion);
@@ -413,13 +420,13 @@ void Interprete::ejecutar(string entrada){
                     //admin->renombrarArchivo(funcion);
                     break;
                 case 20:
-                    //admin->crearDirectorio(funcion);//Mínimo
+                    admin->crearDirectorio(funcion);//Mínimo
                     break;
                 case 21:
                     //admin->copiarDir(funcion);
                     break;
                 case 22:
-                    //admin->moverDir(funcion);
+                    admin->moverDir(funcion);
                     break;
                 case 23:
                     //admin->encontrarDir(funcion);
@@ -433,10 +440,10 @@ void Interprete::ejecutar(string entrada){
                 case 26:
                     break;
                 case 27:
-                  //  admin->recuperar(funcion);    //Mínimo
+                    admin->recuperar(funcion);    //Mínimo
                     break;
                 case 28:
-                //    admin->perdida(funcion);      //Mínimo
+                    admin->perdida(funcion);      //Mínimo
                     break;
                 default:
                     cout<<"Error, No se ingresó una opción válida"<<endl;
@@ -536,7 +543,7 @@ int Interprete::getParam(string token){
             return 15;
         if(token.compare("file")==0||token.compare("file1")==0||token.compare("file2")==0||token.compare("file3")==0||token.compare("file4")==0||token.compare("file5")==0)
             return 16;
-        if(token.compare("destiny")==0)
+        if(token.compare("dest")==0)
             return 17;
         if(token.compare("rf")==0)
             return 18;

@@ -82,10 +82,12 @@ typedef struct{
     char log_nombre[16];
     char log_path[128];
     char contenido;
-    time_t j_ctime;
-    char log_propietario[11];
-    int control;
+    char log_propietario[12];
 } Journal;
+
+typedef struct{
+    char status;
+} Bitmap;
 
 typedef struct{
     char b_name[12];

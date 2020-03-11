@@ -51,11 +51,12 @@ public:
     void repJournaling(Funcion* funcion);
     void repBMBlock(Funcion* funcion);
     void repBMInode(Funcion* funcion);
-    void repTree_Bloque(Funcion* funcion);
-    void repTree_Inodo(Funcion* funcion);
-    void repTreeComplete(Funcion* funcion);
+    void repBlock(Funcion* funcion);
+    void repInodo(Funcion* funcion);
+    void repTree(Funcion* funcion);
     void repSuperBloque(Funcion* funcion);
     void repLS(Funcion* funcion);
+    void repFile(Funcion* funcion);
 private:
     int getEspacio(Particion particion,FILE* archivo,int add);
     int valExtension(Funcion*funcion);
@@ -93,6 +94,9 @@ private:
     bool hayLogicas(char* path);
     int numeroDirectorios(char* path);
     bool estaLoggeado(char* id);
+    BloqueCarpeta getBloqueCarpeta(FILE* archivo,int inicio, int pos);
+    BloqueArchivo getBloqueArchivo(FILE* archivo,int inicio, int pos);
+    void leerBMInodo(int inicio, int n,char* path,Bitmap *bmInodo);
 //    void crearCarpeta(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
 //    void crearPadres(SuperBoot super, int posBtimap, string nombresDir[],int posActualCarpeta, int numeroCarpetas, NodoParticion* part,int nEstructuras);
 //    void insertarCarpeta(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
@@ -109,11 +113,11 @@ private:
     void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
-//    void definirAVDDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
+    void definirInodoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
 //    void definirDDTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
-//    void definirAVDTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
-//    void definirInodeTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
-//    void definirBlockTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
+    void definirIndirectoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
+    void definirCarpetaTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
+    void definirArchivoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
 //    void definirAVDTreeDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
 //    void definirDDDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
 //    void definirInodeDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
