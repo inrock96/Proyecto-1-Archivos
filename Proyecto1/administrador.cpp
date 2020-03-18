@@ -43,10 +43,10 @@ SuperBloque Administrador::crearSuperBloque(int bit_inicio, int tamano, NodoPart
     //Llenar superboot
 
     sb.s_filesystem_type=tipo;
-    sb.s_inodes_count=0;
-    sb.s_blocks_count=0;
-    sb.s_free_inodes_count=nEstructuras;
-    sb.s_free_blocks_count=3*nEstructuras;
+    sb.s_inodes_count=nEstructuras;
+    sb.s_blocks_count=3*nEstructuras;
+    sb.s_free_inodes_count=nEstructuras-2;
+    sb.s_free_blocks_count=3*nEstructuras-2;
     sb.s_mtime=time(0);
     sb.s_umtime=time(0);
     sb.s_mnt_count=1;
@@ -55,18 +55,17 @@ SuperBloque Administrador::crearSuperBloque(int bit_inicio, int tamano, NodoPart
     if(tipo==3){
 
         sb.s_bm_inode_start=bit_inicio+sizeof (SuperBloque)+nEstructuras*sizeof (Journal);
-        sb.s_journal_start=bit_inicio+sizeof (SuperBloque);
+
     }else{
         sb.s_bm_inode_start=bit_inicio+sizeof (SuperBloque);
-        sb.s_journal_start=-1;
     }
 
     sb.s_bm_block_start=sb.s_bm_inode_start+nEstructuras;
     sb.s_inode_start=sb.s_bm_block_start+3*nEstructuras;
     sb.s_block_start=sb.s_inode_start+nEstructuras*sizeof (iNodo);
 
-    sb.s_first_blo=sb.s_block_start;
-    sb.s_first_ino=sb.s_inode_start;
+    sb.s_first_blo=2;
+    sb.s_first_ino=2;
     return  sb;
 }
 int Administrador::getNumeroBloques(int size){
@@ -94,7 +93,6 @@ void Administrador::formatear(Funcion *funcion){
             if(funcion->opciones[4]==1){
                 if(funcion->eliminar.compare("fast")==0)
                     format=2;
-
             }
             NodoParticion* part = listaDisco->existeId(funcion->id[0]);
             if(part!=nullptr){
@@ -103,9 +101,10 @@ void Administrador::formatear(Funcion *funcion){
                 cout<<"particion en path a formatear"<<part->path<<endl;
                 FILE* archivo = fopen(comando,"rb+");
                 if(archivo!=NULL){
-                    int nEstructuras =numeroEstructuras(part->tamano,funcion->fs);
-                    SuperBloque sb = crearSuperBloque(part->byteInicio,part->tamano,part,funcion->fs);
+                    int nEstructuras =numeroEstructuras(part->tamano,fs);
+                    SuperBloque sb = crearSuperBloque(part->byteInicio,part->tamano,part,fs);
                     //Escribir superboot
+
                     fseek(archivo,part->byteInicio,SEEK_SET);
                     fwrite(&sb,sizeof (SuperBloque),1,archivo);
                     //Escribir bitmap Inodo
@@ -117,12 +116,13 @@ void Administrador::formatear(Funcion *funcion){
                             break;
                         }
                     }
-                    mbr.particiones[posPart].part_status='f';
+                    if(posPart!=-1)
+                        mbr.particiones[posPart].part_status='f';
                     int i;
                     //Escribe journal
                     int prueba ;
                     if(fs==3){
-                        prueba = sb.s_journal_start;
+                        prueba = part->byteInicio+sizeof (SuperBloque);
                         Journal journal;
                         journal.log_tipo=-1;
                         journal.log_fecha = time(0);
@@ -141,8 +141,6 @@ void Administrador::formatear(Funcion *funcion){
                     archivo = fopen(part->path,"rb+");
                     if(format!=1){
                         //Fast
-                        char users[100];
-                        strcpy(users,"1,G,root\n1,U,root,root,201504002\n");
                     }else{
                         //Full
                         //Escribir bloques
@@ -158,8 +156,8 @@ void Administrador::formatear(Funcion *funcion){
                         }
                         //Escribir inodos
                         iNodo inodo;
-                        inodo.i_gid = 1;
-                        inodo.i_uid=1;
+                        inodo.i_gid = -1;
+                        inodo.i_uid=-1;
                         inodo.i_perm_lectura=inodo.i_perm_ejecucion=inodo.i_perm_escritura=-1;
                         inodo.i_size=-1;
                         inodo.i_type=-1;
@@ -212,7 +210,7 @@ void Administrador::formatear(Funcion *funcion){
                     iNodo i_usr;
                     i_usr.i_gid=1;
                     i_usr.i_uid=1;
-                    i_usr.i_size=33;
+                    i_usr.i_size=32;
                     i_usr.i_type=1;
                     i_usr.i_atime=i_usr.i_ctime=i_usr.i_mtime=time(0);
                     i_usr.i_perm_lectura=0;
@@ -225,7 +223,7 @@ void Administrador::formatear(Funcion *funcion){
 
                     BloqueArchivo b_usr;
 
-                    strcpy(b_usr.b_content,"1,G,root\n1,U,root,root,201504002\n");
+                    strcpy(b_usr.b_content,"1,G,root\n1,U,root,root,201504002");
                     int cont = 0;
                     while (b_usr.b_content[cont]!=NULL) {
                         cont++;
@@ -233,16 +231,10 @@ void Administrador::formatear(Funcion *funcion){
                     int nbloques = getNumeroBloques(cont);
                     int nultimo = getUltimoNBloques(cont);
                     //Se llenan los bloques de información
-                    sb.s_first_blo-=2;
-                    sb.s_first_ino-=2;
-                    sb.s_blocks_count+=2;
-                    sb.s_inodes_count+=2;
-
-                    //Bitacora
-
                     Journal j_raiz;
                     Journal j_usuarios;
                     if(fs==3){
+
                         j_raiz.log_fecha = j_usuarios.log_fecha = time(0);
                         strcpy(j_raiz.log_path,"/");
                         strcpy(j_usuarios.log_path,"/");
@@ -254,7 +246,7 @@ void Administrador::formatear(Funcion *funcion){
                         j_usuarios.log_tipo=1;
                         j_raiz.contenido = 1;
                         j_usuarios.contenido=2;
-                        fseek(archivo,sb.s_journal_start,SEEK_SET);
+                        fseek(archivo,part->byteInicio+sizeof (SuperBloque),SEEK_SET);
                         fwrite(&j_raiz,sizeof (Journal),1,archivo);
                         fwrite(&j_usuarios,sizeof (Journal),1,archivo);
                     }
@@ -275,24 +267,108 @@ void Administrador::formatear(Funcion *funcion){
                     fwrite(&i_usr,sizeof (iNodo),1,archivo);
                     //Escribir bloques
                     int iniciobb = sb.s_block_start;
-                    fseek(archivo,iniciobb,SEEK_SET);
+                    fseek(archivo,sb.s_block_start,SEEK_SET);
                     fwrite(&bcarpeta,sizeof (BloqueCarpeta),1,archivo);
                     fwrite(&b_usr,sizeof (BloqueArchivo),1,archivo);
                     fclose(archivo);
                     if(fs==3){
-                        escribirJournal(j_raiz,part->path,sb,nEstructuras);
-                        escribirJournal(j_usuarios,part->path,sb,nEstructuras);
+                        escribirJournal(j_raiz,part->path,sb,nEstructuras,part->byteInicio+sizeof (SuperBloque));
+                        escribirJournal(j_usuarios,part->path,sb,nEstructuras,part->byteInicio+sizeof (SuperBloque));
                     }
                     //fin
+                }else{
+                    cout<<"ERROR(MKFS), No se pudo abrir el archivo: "<<comando<<endl;
                 }
+            }else{
+                cout<<"ERROR (MKFS), no hay particion montada con este id:"<<funcion->id[0]<<endl;
             }
         }
     }
 }
 
-void Administrador::escribirJournal(Journal journal, char *path, SuperBloque sb, int nEstructuras){
+
+
+void Administrador::login(Funcion *funcion){
+    if(funcion->opciones[8]==1&&funcion->opciones[9]==1&&funcion->opciones[10]==1){
+        NodoParticion* part = listaDisco->existeId(funcion->id[0]);
+        Usuario*usr = getUsuario(funcion->usr,part);
+        if(sesion->usrid==-1){
+            usr = getUsuario(funcion->usr,part);
+            if(part!=nullptr){
+                if(usr->contrasena.compare(funcion->pwd)==0){
+                    sesion->iniciarSesion(usr->nombre,usr->contrasena,funcion->id[0]);
+                    sesion->usrid = usr->usuario;
+                    sesion->groupid = usr->grupo;
+                    cout<<"    Sesion iniciada con exito"<<endl;
+                }else{
+                    cout<<"ERROR AL INICIAR SESION, CONTRA O USR INCORRECTO"<<endl;
+                }
+            }else{
+                cout<<"ERROR AL INICIAR SESION, PARTICION NO MONTADA"<<endl;
+            }
+        }else{
+            cout<<"ERROR AL INICIAR SESION, YA INICIO SESION"<<endl;
+        }
+    }else{
+        cout<<"ERROR AL INICIAR SESION, FALTAN PARAMETROS"<<endl;
+    }
+}
+
+void Administrador::limpiarVar(char *var, int n){
+    for (int i = 0;i<n;i++) {
+        var[i]='\0';
+    }
+}
+void Administrador::escribirBitMap(int inicio,int n,FILE* archivo){
+    char b = '0';
+    fseek(archivo,inicio,SEEK_SET);
+    //int c = ftell(archivo);
+    //int a = ftell(archivo);
+    for (int i = 0;i<n;i++) {
+        fseek(archivo,inicio,SEEK_SET);
+        fwrite(&b,sizeof (char),1,archivo);
+        inicio+=sizeof (char);
+    }
+    //cout<<"Numero de estructuras:"<<n<<"Inicio en:"<< a<<" El puntero de bitmap termina en:"<<ftell(archivo)<<endl;
+    //cout<<c<<endl;
+    int bloques = 64;
+}
+
+void Administrador::logout(){
+    if(sesion->groupid<1)
+            cout<<"No hay sesión iniciada"<<endl<<endl;
+        else
+        {
+            sesion->cerrarSesion();
+            cout <<"Sesión cerrada con éxito"<<endl<<endl;
+        }
+}
+
+Usuario *Administrador::getUsuario(string usr, NodoParticion* part){
+    Usuario* usuario = new Usuario();
+    if(usr.compare("root")==0){
+        usuario->nombre = "root";
+        usuario->contrasena ="201504002";
+        usuario->grupo=1;
+        usuario->usuario=1;
+        return usuario;
+    }
+    /*Buscar usuario en particion*/
+    return  usuario;
+}
+
+iNodo Administrador::getInodoUsuarios(Sesion sesion){
+    iNodo inodo;
+    //check
+    return  inodo;
+}
+
+
+
+
+void Administrador::escribirJournal(Journal journal, char *path, SuperBloque sb, int nEstructuras, int inicio){
     FILE *archivo = fopen(path,"rb+");
-    int bitacoralibre = getPosJournal(sb.s_journal_start,nEstructuras,archivo);
+    int bitacoralibre = getPosJournal(inicio,nEstructuras,archivo);
     fseek(archivo,bitacoralibre,SEEK_SET);
     fwrite(&journal,sizeof (Journal),1,archivo);
     fclose(archivo);
@@ -303,7 +379,7 @@ int Administrador::getPosJournal(int inicio, int nEstruct, FILE *archivo){
     Journal bit;
     for (int i =0;i<nEstruct;i++) {
         fread(&bit,sizeof(Journal),1,archivo);
-        if(bit.contenido==0){
+        if(bit.log_tipo==-1){
             posActual=ftell(archivo);
             break;
         }
@@ -707,13 +783,13 @@ void Administrador::crearParticion(Funcion *funcion){
             else if(funcion->opciones[0]==-1&&funcion->opciones[5]==-1&&funcion->opciones[7]==1){
                 addParticion(funcion);
             }else{
-                cout<<"Error fdisk, size, delete y add son excluyentes"<<endl;
+                cout<<"ERROR FDISK, ADD, DELETE, CREAR SO NEXCLUYENTES"<<endl;
             }
 
             fclose(archivo);
             fclose(fRaid);
         }else{
-            cout<<"No se encontró uno de los discos(original o raid) en: "<<funcion->path<<endl;
+            cout<<"ERROR, FDISK NO SE ENCONTRO UNO DE LOS DISCOS EN: "<<funcion->path<<endl;
         }
     }else {
         cout<<"Error al crear partición, no están los campos mínimos necesarios"<<endl;
@@ -960,10 +1036,13 @@ void Administrador::montarDisco(Funcion *funcion){
             Particion p = getParticion(path,nombreFunc);
             if(p.part_status!='d'){
                 listaDisco->insertar(path,p.part_start,p.part_size,p.part_name,p.part_type);
+            }else{
+                cout<<"ERROR, NO EXISTE ESA PARTICION"<<endl;
             }
             fclose(file);
+            cout<<"Fin, mount"<<endl;
         }else{
-            cout<<"Error, no se pudo abrir el archivo"<<endl;
+            cout<<"ERROR, NO SE PUDO ABRIR EL ARCHIVO"<<endl;
         }
     }else if (funcion->opciones[0]!=1&&funcion->opciones[1]!=1&&funcion->opciones[2]!=1&&funcion->opciones[3]!=1&&funcion->opciones[4]!=1&&funcion->opciones[5]!=1&&funcion->opciones[6]!=1&&funcion->opciones[7]!=1&&funcion->opciones[8]!=1&&funcion->opciones[9]!=1) {
         listaDisco->mostrarLista();
@@ -1068,7 +1147,7 @@ void Administrador::reporteDisco(Funcion* funcion,MBR mbr){
     }
 }
 void Administrador::repBMInode(Funcion *funcion){
-
+    crearDirectorioLinux(funcion->path,funcion);
     char path[100];
     strcpy(path,funcion->path.data());
     FILE* archivo = fopen(path,"w");
@@ -1078,12 +1157,13 @@ void Administrador::repBMInode(Funcion *funcion){
     NodoParticion* part = listaDisco->existeId(ide);
     FILE* archivoBitmap = fopen(part->path,"rb+");
     if(archivo!=nullptr&&archivoBitmap!=nullptr){
-        escribirFileBitmap(archivo,archivoBitmap,numeroEstructuras(part->tamano,funcion->fs),sb.s_bm_inode_start);
+        escribirFileBitmap(archivo,archivoBitmap,numeroEstructuras(part->tamano,sb.s_filesystem_type),sb.s_bm_inode_start);
         fclose(archivo);
         fclose(archivoBitmap);
     }
 }
 void Administrador::repBMBlock(Funcion *funcion){
+    crearDirectorioLinux(funcion->path,funcion);
     char path[100];
     strcpy(path,funcion->path.data());
     FILE* archivo = fopen(path,"w");
@@ -1093,7 +1173,7 @@ void Administrador::repBMBlock(Funcion *funcion){
     NodoParticion* part = listaDisco->existeId(ide);
     FILE* archivoBitmap = fopen(part->path,"rb+");
     if(archivo!=nullptr&&archivoBitmap!=nullptr){
-        escribirFileBitmap(archivo,archivoBitmap,numeroEstructuras(part->tamano,funcion->fs)*3,sb.s_bm_block_start);
+        escribirFileBitmap(archivo,archivoBitmap,numeroEstructuras(part->tamano,sb.s_filesystem_type)*3,sb.s_bm_block_start);
         fclose(archivo);
         fclose(archivoBitmap);
     }
@@ -1112,6 +1192,7 @@ void Administrador::repSuperBloque(Funcion *funcion){
                    "<table border=\'0\' cellborder=\'1\' color=\'blue\' cellspacing=\'0\'>");
         fprintf(archivo,"<tr><td>SUPER BLOQUE</td></tr>\n");
         fprintf(archivo,"<tr><td>Nombre</td><td>Valor</td></tr>\n");
+        fprintf(archivo,"<tr><td>s_filesystem_type</td><td>%d</td></tr>\n",sb.s_filesystem_type);
         fprintf(archivo,"<tr><td>s_inodes_count</td><td>%d</td></tr>\n",sb.s_inodes_count);
         fprintf(archivo,"<tr><td>s_blocks_count</td><td>%d</td></tr>\n",sb.s_blocks_count);
         fprintf(archivo,"<tr><td>s_free_inodes_count</td><td>%d</td></tr>\n",sb.s_free_inodes_count);
@@ -1231,13 +1312,29 @@ void Administrador::discoEBR(int posicion, MBR mbr, FILE *archivo, NodoParticion
     }
 }
 
+SuperBloque Administrador::getSuperBloque(char *ide){
+    SuperBloque sb;
+    NodoParticion *part = listaDisco->existeId(ide);
+
+    FILE *archivo = fopen(part->path,"rb+");
+    if(archivo!=nullptr){
+        fseek(archivo,part->byteInicio,SEEK_SET);
+        fread(&sb, sizeof (SuperBloque),1,archivo);
+        cout<<"CONSIGUIO EXITOSAMENTE EL SUPERBLOQUE"<<endl;
+        fclose(archivo);
+        part = nullptr;
+    }else {
+        cout<<"ERROR ABRIR ARCHIVO GET SUPERBLOQUE"<<endl;
+    }
+    return sb;
+}
+
 void Administrador::repTree(Funcion *funcion){
     char ide[5];
     char hora1[128];
     strcpy(ide,funcion->id[0].data());
     SuperBloque sb = getSuperBloque(ide);
     NodoParticion* part = listaDisco->existeId(ide);
-    int i;
     FILE* archivo = fopen("/home/mia/Reportes/arbol.dot","w");
 
     int n = numeroEstructuras(part->tamano,sesion->tipo);
@@ -1252,41 +1349,7 @@ void Administrador::repTree(Funcion *funcion){
         fprintf(archivo,"edge [color=\"#A30015\"];\n");
         fprintf(archivo,"rankdir=LR;\n");
 
-
-
-        iNodo inodo;
-        fread(&inodo,sizeof (iNodo),1,archivoTree);
-        horaAString(hora1,inodo.i_ctime);
-
-        fprintf(archivo,"inodo%d[label=\"",0);
-        fprintf(archivo,"inodo=%d|tamaño=%d|tipo=%c|idusr=%d",0,inodo.i_size,inodo.i_type,inodo.i_uid);
-        /*Recorrer punteritos*/
-        int j;
-        for (j = 0;j<12;j++) {
-            if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"|{AD%d|<N%d>}",j,j);
-            }
-        }
-        for (j = 12;j<15;j++) {
-            if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"|{AI%d|<N%d>}",j-11,j);
-            }
-        }
-        fprintf(archivo, "\",color=white,fillcolor=\"#A30015\",fontcolor=white];\n");
-
-        for(j=0;j<12;j++){
-            if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
-                definirCarpetaTree(archivo,archivoTree,inodo.i_block[j],sb);
-            }
-        }
-        for (j=12;j<15;j++) {
-            if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
-                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,0);
-            }
-        }
-
+        definirInodoTree(archivo,archivoTree,0,sb);
 
         fprintf(archivo, "}\n");
         fclose(archivo);
@@ -1296,14 +1359,30 @@ void Administrador::repTree(Funcion *funcion){
 }
 
 void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
-    char* hora1;
+    char hora1[128];
+    char hora2[128];
+    char hora3[128];
     iNodo inodo;
-    fseek(archivoTree,sb.s_inode_start+apActual*sizeof (inodo),SEEK_SET);
+    int pos = apActual*sizeof (iNodo);
+    fseek(archivoTree,sb.s_inode_start+pos,SEEK_SET);
     fread(&inodo,sizeof (iNodo),1,archivoTree);
-    horaAString(hora1,inodo.i_ctime);
+    horaAString(hora1,inodo.i_atime);
+    horaAString(hora2,inodo.i_ctime);
+    horaAString(hora3,inodo.i_mtime);
 
-    fprintf(archivo,"inodo%d[label=\"",0);
-    fprintf(archivo,"inodo=%d|tamaño=%d|tipo=%c|idusr=%d",0,inodo.i_size,inodo.i_type,inodo.i_uid);
+    fprintf(archivo,"inodo%d[label=\"",apActual);
+    fprintf(archivo,"inodo%d|tamaño=%d|tipo=%d|idusr=%d|gid=%d|atime=%s|ctime=%s|mtime=%s|ugo=%d%d%d",
+            apActual,
+            inodo.i_size,
+            inodo.i_type,
+            inodo.i_uid,
+            inodo.i_gid,
+            hora1,
+            hora2,
+            hora3,
+            inodo.i_perm_lectura,
+            inodo.i_perm_escritura,
+            inodo.i_perm_ejecucion);
     /*Recorrer punteritos*/
     int j;
     for (j = 0;j<12;j++) {
@@ -1320,7 +1399,7 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
     if(inodo.i_type==0){
         for(j=0;j<12;j++){
             if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
                 definirCarpetaTree(archivo,archivoTree,inodo.i_block[j],sb);
             }
         }
@@ -1328,7 +1407,7 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
     else{
         for(j=0;j<12;j++){
             if(inodo.i_block[j]!=-1){
-                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+                fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
                 definirArchivoTree(archivo,archivoTree,inodo.i_block[j],sb);
             }
         }
@@ -1336,12 +1415,11 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
 
     for (j=12;j<15;j++) {
         if(inodo.i_block[j]!=-1){
-            fprintf(archivo,"inodo%d:N%d->bloque%d;\n",0,j,inodo.i_block[j]);
+            fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
             if(inodo.i_type==0)
                 definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,0);
             else
                 definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,1);
-
         }
     }
 }
@@ -1361,23 +1439,53 @@ void Administrador::definirCarpetaTree(FILE *archivo, FILE *archivoTree, int apA
     fprintf(archivo, "\",color=white,fillcolor=\"#7A6C5D\",fontcolor=white];\n");
     for (i = 0; i < 4; i++) {
         if (carpeta.b_content[i].b_inodo != -1) {
-            fprintf(archivo, "\tbloque%i:N%i->I%i;\n", apActual, i, carpeta.b_content[i].b_inodo);
-            definirInodoTree(archivo,archivoTree,carpeta.b_content[i].b_inodo,sb);
+
+            if(strcmp(carpeta.b_content[i].b_name,".")!=0&&strcmp(carpeta.b_content[i].b_name,"..")!=0){
+                fprintf(archivo, "bloque%i:N%i->inodo%i;\n", apActual, i, carpeta.b_content[i].b_inodo);
+                definirInodoTree(archivo,archivoTree,carpeta.b_content[i].b_inodo,sb);
+            }
         }
     }
 }
 
 void Administrador::definirArchivoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
     BloqueArchivo bloque = getBloqueArchivo(archivoTree,sb.s_block_start,apActual);
-    fprintf(archivo,"bloque%d[label\"Bloque%d",apActual,apActual);
+    fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
     char blocazo[65];
     strcpy(blocazo,bloque.b_content);
     fprintf(archivo,"|%s",blocazo);
-    fprintf(archivo, "\",color=white,fillcolor=#2A3D45,fontcolor=white];\n");
+    fprintf(archivo, "\",color=white,fillcolor=\"#2A3D45\",fontcolor=white];\n");
 }
 
 void Administrador::definirIndirectoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
-
+    BloqueApuntador bap = getBloqueApuntador(archivo,sb.s_block_start,apActual);
+    fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
+    for (int i = 0;i<16;i++) {
+        if(bap.b_pointers[i]!=-1){
+            fprintf(archivo,"|{AP%d|<N%d>}",i+1,i);
+        }
+    }
+    int i;
+    if(tipoIndirecto==1){
+        if(tipoBloque==0){
+            //Jalamos un bloque carpeta
+            for (i = 0;i<16;i++) {
+                fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
+                definirCarpetaTree(archivo,archivoTree,bap.b_pointers[i],sb);
+            }
+        }else{
+            //Jalamos el bloque archivo
+            for (i = 0;i<16;i++) {
+                fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
+                definirArchivoTree(archivo,archivoTree,bap.b_pointers[i],sb);
+            }
+        }
+    }else{
+        for (i =0;i<16;i++) {
+            fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
+            definirIndirectoTree(archivo,archivoTree,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
+        }
+    }
     fprintf(archivo, "\",color=white,fillcolor=#FFCF99,fontcolor=white];\n");
 }
 
@@ -1397,6 +1505,16 @@ BloqueCarpeta Administrador::getBloqueCarpeta(FILE* archivo,int inicio,int pos){
     if(archivo){
         fseek(archivo,inicio+pos*sizeof (BloqueCarpeta),SEEK_SET);
         fread(&b,sizeof (BloqueCarpeta),1,archivo);
+    }
+    return b;
+}
+
+BloqueApuntador Administrador::getBloqueApuntador(FILE *archivo, int inicio, int pos){
+    BloqueApuntador b;
+    b.b_pointers[0]=-1;
+    if(archivo){
+        fseek(archivo,inicio+pos*sizeof (BloqueApuntador),SEEK_SET);
+        fread(&b,sizeof (BloqueApuntador),1,archivo);
     }
     return b;
 }
@@ -1434,23 +1552,23 @@ void Administrador::reportes(Funcion *funcion){
             else
                 cout<<"No se encontró partición montada con ese id"<<endl;
         }else if(funcion->nombre.compare("journaling")==0){
-            repJournaling(funcion);
+            //repJournaling(funcion);
         }else if(funcion->nombre.compare("bm_inode")==0){
             repBMInode(funcion);
         }else if(funcion->nombre.compare("bm_block")==0){
             repBMBlock(funcion);
         }else if(funcion->nombre.compare("file")==0){
-            repFile(funcion);
+            //repFile(funcion);
         }else if(funcion->nombre.compare("inode")==0){
-            repInodo(funcion);
+            //repInodo(funcion);
         }else if(funcion->nombre.compare("block")==0){
-            repBlock(funcion);
+            //repBlock(funcion);
         }else if(funcion->nombre.compare("tree")==0){      //Primero
             repTree(funcion);
         }else if(funcion->nombre.compare("sb")==0){        //fresh
             repSuperBloque(funcion);
         }else if(funcion->nombre.compare("ls")==0){        //Hard
-            repLS(funcion);
+            //repLS(funcion);
         }
         else{
             cout<<"Error, ese reporte no existe papá"<<endl;
@@ -1458,6 +1576,51 @@ void Administrador::reportes(Funcion *funcion){
     }else {
         cout<<"Error al crear reporte, no están todos los campos necesarios"<<endl;
     }
+}
+
+void Administrador::crearArchivo(Funcion *funcion){
+
+}
+
+int Administrador::numeroDirectorios(char *path){
+    int numeroDirectorios = 0;
+    int i = 0;
+    while(path[i]!=NULL){
+        if(path[i]=='/'){
+            numeroDirectorios++;
+        }
+        i++;
+    }
+    return numeroDirectorios;
+}
+
+void Administrador::crearDirectorio(Funcion *funcion){
+    if(funcion->opciones[3]==1&&funcion->opciones[8]){
+        NodoParticion *part = listaDisco->existeId(sesion->idPart);
+        if(part!=nullptr){
+            if(sesion->usrid!=-1){
+                char pathDir[funcion->path.size()+1];
+                strcpy(pathDir,funcion->path.data());
+                int numeroDir = numeroDirectorios(pathDir);
+                string nombreDir[numeroDir];
+
+            }else {
+                cout<<"ERROR MKDIR, SESION NO INICIADA"<<endl;
+            }
+        }else{
+            cout<<"ERROR MKDIR, PARTICION NO MONTADA"<<endl;
+        }
+    }else{
+        cout<<"ERROR MKDIR, FALTAN PARAMETROS"<<endl;
+    }
+}
+
+void Administrador::recuperar(Funcion *funcion){
+
+}
+
+void Administrador::perdida(Funcion *funcion){
+
 }
 
 void Administrador::generarReporte(Funcion *funcion, string nombreRep){

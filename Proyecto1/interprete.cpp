@@ -121,11 +121,11 @@ void Interprete::ejecutar(string entrada){
             /************Ahora guarda el valor del parametro**********/
             /*********************************************************/
             /*ahora conseguimos el valor de ese parametro*/
-            if(opActual!=13&&opActual!=14&&opActual!=18){
+            if(opActual!=13&&opActual!=14){
                 if(comando[contador]=='\"'){
                     /*entoeees verifico si puede venir una cadena*/
-                    /*path, name, id, usr,pwd,grp, cont, dest, file*/
-                    if(opActual==3||opActual==8||opActual==6||opActual==9||opActual==10||opActual==11||opActual==15||opActual==16||opActual==17||opActual==18||opActual==20){
+                    /*path, name, id, usr,pwd,grp, cont, dest,fs, file*/
+                    if(opActual==3||opActual==8||opActual==6||opActual==9||opActual==10||opActual==11||opActual==15||opActual==16||opActual==17||opActual==18||opActual==19){
                         contador++;
                         do {
                             if(comando[contador]=='/'){
@@ -133,7 +133,8 @@ void Interprete::ejecutar(string entrada){
                                 tokenActual+=comando[contador];
                                 contador++;
                             }
-                            funcion->fileName+=comando[contador];
+                            if(opActual==3)
+                                funcion->fileName+=comando[contador];
                             tokenActual+=comando[contador];
                             contador++;
                         } while (comando[contador]!='\"'&&contador<100&&comando[contador-1]!='\"');
@@ -307,13 +308,13 @@ void Interprete::ejecutar(string entrada){
                     }
                 }else if(esNumero(comando[contador])){
                     /*verificamos si lo que queremos sea una número*/
-                    if(opActual==0||opActual==7||opActual==12||opActual==10){
+                    if(opActual==0||opActual==7||opActual==12||opActual==10||opActual==18){
                         /*Si puede ser número*/
                         while(esNumero(comando[contador])){
                             tokenActual+=comando[contador];
                             contador++;
                         }
-                        if(opActual==20){
+                        if(opActual==18){
                             while (esLetra(comando[contador])) {
                                 contador++;
                             }
@@ -387,19 +388,19 @@ void Interprete::ejecutar(string entrada){
                     admin->login(funcion);        //Mínimo
                     break;
                 case 9:
-                    admin->logout(funcion);       //Mínimo
+                    admin->logout();       //Mínimo
                     break;
                 case 10:
-                    admin->crearGrupo(funcion);   //Mínimo
+                    //admin->crearGrupo(funcion);   //Mínimo
                     break;
                 case 11:
-                    admin->eliminarGrupo(funcion);
+                    //admin->eliminarGrupo(funcion);
                     break;
                 case 12:
-                    admin->crearUsr(funcion);     //Mínimo
+                    //admin->crearUsr(funcion);     //Mínimo
                     break;
                 case 13:
-                    admin->eliminarUsr(funcion);
+                    //admin->eliminarUsr(funcion);
                     break;
                 case 14:
                     //admin->chmod(funcion);
@@ -408,7 +409,7 @@ void Interprete::ejecutar(string entrada){
                     admin->crearArchivo(funcion); //Mínimo
                     break;
                 case 16:
-                    admin->catArchivo(funcion);//Mínimo
+                    //admin->catArchivo(funcion);//Mínimo
                     break;
                 case 17:
                     //admin->eliminarArchivo(funcion);
@@ -426,7 +427,7 @@ void Interprete::ejecutar(string entrada){
                     //admin->copiarDir(funcion);
                     break;
                 case 22:
-                    admin->moverDir(funcion);
+                    //admin->moverDir(funcion);
                     break;
                 case 23:
                     //admin->encontrarDir(funcion);
@@ -450,6 +451,10 @@ void Interprete::ejecutar(string entrada){
                     break;
             }
 }
+
+
+
+
 
 void Interprete::ejecutarComando(Funcion *funcion){
     string line;
@@ -525,7 +530,7 @@ int Interprete::getParam(string token){
             return 6;
         if(token.compare("add")==0)
             return 7;
-        if(token.compare("id")==0||token.compare("id1")==0||token.compare("id2")==0||token.compare("id3")==0||token.compare("id4")==0||token.compare("id5")==0)
+        if(token.compare("id")==0)
             return 8;
         if(token.compare("usr")==0)
             return 9;
@@ -541,11 +546,11 @@ int Interprete::getParam(string token){
             return 14;
         if(token.compare("cont")==0)
             return 15;
-        if(token.compare("file")==0||token.compare("file1")==0||token.compare("file2")==0||token.compare("file3")==0||token.compare("file4")==0||token.compare("file5")==0)
+        if(token.compare("file")==0)
             return 16;
         if(token.compare("dest")==0)
             return 17;
-        if(token.compare("rf")==0)
+        if(token.compare("fs")==0)
             return 18;
         if(token.compare("ruta")==0)
             return 19;

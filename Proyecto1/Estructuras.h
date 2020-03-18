@@ -57,7 +57,6 @@ typedef struct{
     unsigned int s_bm_block_start;
     unsigned int s_inode_start;
     unsigned int s_block_start;
-    unsigned int s_journal_start;
 } SuperBloque;
 
 typedef struct{
@@ -72,6 +71,7 @@ typedef struct{
     char i_perm_escritura;
     char i_perm_lectura;
     char i_perm_ejecucion;//Permisos 664
+    char i_extra;
 
 } iNodo;
 

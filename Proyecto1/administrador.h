@@ -26,7 +26,7 @@ public:
     void reportes(Funcion *funcion);
     void formatear(Funcion *funcion);
     void login(Funcion *funcion);
-    void logout(Funcion *funcion);
+    void logout();
     void crearGrupo(Funcion *funcion);
     void eliminarGrupo(Funcion *funcion);
     void crearUsr(Funcion *funcion);
@@ -96,7 +96,9 @@ private:
     bool estaLoggeado(char* id);
     BloqueCarpeta getBloqueCarpeta(FILE* archivo,int inicio, int pos);
     BloqueArchivo getBloqueArchivo(FILE* archivo,int inicio, int pos);
+    BloqueApuntador getBloqueApuntador(FILE* archivo,int inicio, int pos);
     void leerBMInodo(int inicio, int n,char* path,Bitmap *bmInodo);
+    iNodo getInodoUsuarios(Sesion sesion);
 //    void crearCarpeta(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
 //    void crearPadres(SuperBoot super, int posBtimap, string nombresDir[],int posActualCarpeta, int numeroCarpetas, NodoParticion* part,int nEstructuras);
 //    void insertarCarpeta(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
@@ -110,7 +112,7 @@ private:
 //    void crearBloque(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
     void insertarBloque(SuperBloque super,iNodo nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
     char * toArray(int numero);
-    void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras);
+    void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras, int inicio);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
     void definirInodoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
