@@ -127,10 +127,10 @@ void Administrador::formatear(Funcion *funcion){
                         journal.log_tipo=-1;
                         journal.log_fecha = time(0);
                         journal.contenido = 1;
+                        journal.log_propietario=-1;
                         journal.log_tipo_operacion=2;
                         limpiarVar(journal.log_path,100);
                         limpiarVar(journal.log_nombre,24);
-                        limpiarVar(journal.log_propietario,16);
                         for (i=0;i<nEstructuras;i++) {
                             fseek(archivo,prueba,SEEK_SET);
                             fwrite(&journal,sizeof (Journal),1,archivo);
@@ -299,7 +299,7 @@ void Administrador::login(Funcion *funcion){
                     sesion->iniciarSesion(usr->nombre,usr->contrasena,funcion->id[0]);
                     sesion->usrid = usr->usuario;
                     sesion->groupid = usr->grupo;
-                    cout<<"    Sesion iniciada con exito"<<endl;
+                    cout<<"         Sesion iniciada con exito"<<endl;
                 }else{
                     cout<<"ERROR AL INICIAR SESION, CONTRA O USR INCORRECTO"<<endl;
                 }
@@ -348,7 +348,7 @@ Usuario *Administrador::getUsuario(string usr, NodoParticion* part){
     Usuario* usuario = new Usuario();
     if(usr.compare("root")==0){
         usuario->nombre = "root";
-        usuario->contrasena ="201504002";
+        usuario->contrasena ="123";
         usuario->grupo=1;
         usuario->usuario=1;
         return usuario;
@@ -1340,7 +1340,6 @@ void Administrador::repTree(Funcion *funcion){
     int n = numeroEstructuras(part->tamano,sesion->tipo);
     Bitmap bm_inodo[n];
     leerBMInodo(sb.s_bm_inode_start,n,part->path,bm_inodo);
-
     FILE* archivoTree = fopen(part->path,"rb+");
     if(archivo!=NULL&&archivoTree!=NULL){
         fseek(archivoTree,sb.s_inode_start,SEEK_SET);
@@ -1348,24 +1347,21 @@ void Administrador::repTree(Funcion *funcion){
         fprintf(archivo,"node [style=filled];");
         fprintf(archivo,"edge [color=\"#A30015\"];\n");
         fprintf(archivo,"rankdir=LR;\n");
-
-        definirInodoTree(archivo,archivoTree,0,sb);
+        fclose(archivoTree);
+        definirInodoTree(archivo,part->path,0,sb);
 
         fprintf(archivo, "}\n");
         fclose(archivo);
-        fclose(archivoTree);
         generarReporte(funcion,"arbol");
     }
 }
 
-void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
+void Administrador::definirInodoTree(FILE *archivo, char path[], int apActual, SuperBloque sb){
     char hora1[128];
     char hora2[128];
     char hora3[128];
     iNodo inodo;
-    int pos = apActual*sizeof (iNodo);
-    fseek(archivoTree,sb.s_inode_start+pos,SEEK_SET);
-    fread(&inodo,sizeof (iNodo),1,archivoTree);
+    inodo = getInodo(path,sb.s_inode_start,apActual);
     horaAString(hora1,inodo.i_atime);
     horaAString(hora2,inodo.i_ctime);
     horaAString(hora3,inodo.i_mtime);
@@ -1400,7 +1396,7 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
         for(j=0;j<12;j++){
             if(inodo.i_block[j]!=-1){
                 fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
-                definirCarpetaTree(archivo,archivoTree,inodo.i_block[j],sb);
+                definirCarpetaTree(archivo,path,inodo.i_block[j],sb);
             }
         }
     }
@@ -1408,7 +1404,7 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
         for(j=0;j<12;j++){
             if(inodo.i_block[j]!=-1){
                 fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
-                definirArchivoTree(archivo,archivoTree,inodo.i_block[j],sb);
+                definirArchivoTree(archivo,path,inodo.i_block[j],sb);
             }
         }
     }
@@ -1417,15 +1413,16 @@ void Administrador::definirInodoTree(FILE *archivo, FILE *archivoTree, int apAct
         if(inodo.i_block[j]!=-1){
             fprintf(archivo,"inodo%d:N%d->bloque%d;\n",apActual,j,inodo.i_block[j]);
             if(inodo.i_type==0)
-                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,0);
+                definirIndirectoTree(archivo,path,inodo.i_block[j],sb,j-11,0);
             else
-                definirIndirectoTree(archivo,archivoTree,inodo.i_block[j],sb,j-11,1);
+                definirIndirectoTree(archivo,path,inodo.i_block[j],sb,j-11,1);
         }
     }
 }
 
-void Administrador::definirCarpetaTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
-    BloqueCarpeta carpeta = getBloqueCarpeta(archivoTree,sb.s_block_start,apActual);
+void Administrador::definirCarpetaTree(FILE *archivo, char path[], int apActual, SuperBloque sb){
+
+    BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,apActual);
     fprintf(archivo,"bloque%d[label=\"bloque%d",apActual,apActual);
     int i;
     for (i=0;i<4;i++) {
@@ -1442,14 +1439,14 @@ void Administrador::definirCarpetaTree(FILE *archivo, FILE *archivoTree, int apA
 
             if(strcmp(carpeta.b_content[i].b_name,".")!=0&&strcmp(carpeta.b_content[i].b_name,"..")!=0){
                 fprintf(archivo, "bloque%i:N%i->inodo%i;\n", apActual, i, carpeta.b_content[i].b_inodo);
-                definirInodoTree(archivo,archivoTree,carpeta.b_content[i].b_inodo,sb);
+                definirInodoTree(archivo,path,carpeta.b_content[i].b_inodo,sb);
             }
         }
     }
 }
 
-void Administrador::definirArchivoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb){
-    BloqueArchivo bloque = getBloqueArchivo(archivoTree,sb.s_block_start,apActual);
+void Administrador::definirArchivoTree(FILE *archivo, char path[], int apActual, SuperBloque sb){
+    BloqueArchivo bloque = getBloqueArchivo(path,sb.s_block_start,apActual);
     fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
     char blocazo[65];
     strcpy(blocazo,bloque.b_content);
@@ -1457,8 +1454,8 @@ void Administrador::definirArchivoTree(FILE *archivo, FILE *archivoTree, int apA
     fprintf(archivo, "\",color=white,fillcolor=\"#2A3D45\",fontcolor=white];\n");
 }
 
-void Administrador::definirIndirectoTree(FILE *archivo, FILE *archivoTree, int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
-    BloqueApuntador bap = getBloqueApuntador(archivo,sb.s_block_start,apActual);
+void Administrador::definirIndirectoTree(FILE *archivo, char path[], int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
+    BloqueApuntador bap = getBloqueApuntador(path,sb.s_block_start,apActual);
     fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
     for (int i = 0;i<16;i++) {
         if(bap.b_pointers[i]!=-1){
@@ -1471,27 +1468,28 @@ void Administrador::definirIndirectoTree(FILE *archivo, FILE *archivoTree, int a
             //Jalamos un bloque carpeta
             for (i = 0;i<16;i++) {
                 fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
-                definirCarpetaTree(archivo,archivoTree,bap.b_pointers[i],sb);
+                definirCarpetaTree(archivo,path,bap.b_pointers[i],sb);
             }
         }else{
             //Jalamos el bloque archivo
             for (i = 0;i<16;i++) {
                 fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
-                definirArchivoTree(archivo,archivoTree,bap.b_pointers[i],sb);
+                definirArchivoTree(archivo,path,bap.b_pointers[i],sb);
             }
         }
     }else{
         for (i =0;i<16;i++) {
             fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
-            definirIndirectoTree(archivo,archivoTree,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
+            definirIndirectoTree(archivo,path,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
         }
     }
     fprintf(archivo, "\",color=white,fillcolor=#FFCF99,fontcolor=white];\n");
 }
 
-BloqueArchivo Administrador::getBloqueArchivo(FILE *archivo, int inicio, int pos){
+BloqueArchivo Administrador::getBloqueArchivo(char path[], int inicio, int pos){
     BloqueArchivo b;
     b.b_content[0]='0';
+    FILE* archivo = fopen(path,"rb+");
     if(archivo){
         fseek(archivo,inicio+pos*sizeof (BloqueArchivo),SEEK_SET);
         fread(&b,sizeof (BloqueArchivo),1,archivo);
@@ -1499,22 +1497,27 @@ BloqueArchivo Administrador::getBloqueArchivo(FILE *archivo, int inicio, int pos
     return b;
 }
 
-BloqueCarpeta Administrador::getBloqueCarpeta(FILE* archivo,int inicio,int pos){
+BloqueCarpeta Administrador::getBloqueCarpeta(char path[],int inicio,int pos){
     BloqueCarpeta b;
-    b.b_content[0].b_inodo=-1;
+    b.b_content[0].b_inodo=-2;
+    FILE* archivo = fopen(path,"rb+");
     if(archivo){
         fseek(archivo,inicio+pos*sizeof (BloqueCarpeta),SEEK_SET);
         fread(&b,sizeof (BloqueCarpeta),1,archivo);
+        fclose(archivo);
     }
     return b;
 }
 
-BloqueApuntador Administrador::getBloqueApuntador(FILE *archivo, int inicio, int pos){
+BloqueApuntador Administrador::getBloqueApuntador(char path[], int inicio, int pos){
     BloqueApuntador b;
+
     b.b_pointers[0]=-1;
+    FILE* archivo = fopen(path,"rb+");
     if(archivo){
         fseek(archivo,inicio+pos*sizeof (BloqueApuntador),SEEK_SET);
         fread(&b,sizeof (BloqueApuntador),1,archivo);
+        fclose(archivo);
     }
     return b;
 }
@@ -1601,9 +1604,43 @@ void Administrador::crearDirectorio(Funcion *funcion){
             if(sesion->usrid!=-1){
                 char pathDir[funcion->path.size()+1];
                 strcpy(pathDir,funcion->path.data());
-                int numeroDir = numeroDirectorios(pathDir);
-                string nombreDir[numeroDir];
+                int numero_directorios = numeroDirectorios(pathDir);
 
+                vector<string> array_directorios;
+                int contadorActual = 0;
+                int cont = 0;
+                bool banderaPath = false;
+
+                while(pathDir[cont]!=NULL&&cont<funcion->path.size()+1){
+                    if(pathDir[cont]=='/')
+                    {
+                        cont++;
+                        string tokenActual = "";
+                        while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                            tokenActual+=pathDir[cont];
+                            cont++;
+                        }
+                        array_directorios.push_back(tokenActual);
+                        contadorActual++;
+                    }
+                    else{
+                        banderaPath=true;
+                        break;
+                    }
+                }
+
+                SuperBloque sb = getSuperBloque(sesion->idPart);
+                if(banderaPath==false){
+                    if(funcion->opciones[14]==1){
+                        //opcion -p
+                        crearPadres(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+                    }else{
+                        //Solo crear la última carpeta
+                        crearCarpeta(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+                    }
+                }else{
+                    cout<<"ERROR MKDIR, PATH MALFORMADO"<<endl;
+                }
             }else {
                 cout<<"ERROR MKDIR, SESION NO INICIADA"<<endl;
             }
@@ -1615,6 +1652,561 @@ void Administrador::crearDirectorio(Funcion *funcion){
     }
 }
 
+iNodo Administrador::getInodo(char path[],int inicio, int pos){
+    iNodo inodo;
+    inodo.i_gid=-1;
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,inicio+pos*sizeof (iNodo),SEEK_SET);
+        fread(&inodo,sizeof (iNodo),1,archivo);
+        fclose(archivo);
+    }
+    return inodo;
+}
+void Administrador::crearPadres(SuperBloque sb, int posBitmap, vector<string >array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras){
+    char path[200];
+
+    strcpy(path,part->path);
+    //Obtener carpeta actual
+    iNodo inodo_actual,inodo_siguiente;
+    int posicionInodo = sb.s_inode_start+posBitmap*sizeof (iNodo);
+
+    inodo_actual = getInodo(path,sb.s_inode_start,posBitmap);
+    if(posActualCarpeta==numero_directorios){
+        cout<<"Terminó de crear cosas :v "<<array_directorios[numero_directorios-1]<<endl;
+        return;
+    }
+    int encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios.at(posActualCarpeta));
+
+//    int encontro_directorio=0;
+//    int i;
+//    for (i=0;i<12;i++) {
+//        if(inodo_actual.i_block[i]!=-1){
+//            //Si es diferente de 0 jalamos el bloque carpeta
+//            BloqueCarpeta carpeta= getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
+//            for (int j = 0;j<4;j++) {
+//                if(strcmp(carpeta.b_content[j].b_name,array_directorios[posActualCarpeta].data())==0){
+//                    //Si son iguales
+//                    encontro_directorio=1;
+//                    posBitmap = carpeta.b_content[j].b_inodo;
+//                }
+//            }
+//        }
+//    }
+
+    if(encontro_directorio == -1){
+        //Si no lo encontró, vemos si se crea en esta dirección
+
+        if(numero_directorios==posActualCarpeta+1){
+
+            insertarCarpeta(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual);
+
+        }else{
+            if(numero_directorios==posActualCarpeta){
+                cout<<"Terminó de crear cosas"<<endl;
+            }else{
+                insertarCarpeta(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual);
+                SuperBloque sb1 = getSuperBloque(sesion->idPart);
+
+                crearPadres(sb1,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras);
+            }
+        }
+    }else{
+        BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
+        for (int i = 0;i<4;i++) {
+            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+                posBitmap = carpeta.b_content[i].b_inodo;
+                break;
+            }
+        }
+        //Si lo encontró en los directorios
+        if(posActualCarpeta<numero_directorios)
+            crearPadres(sb,posBitmap,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras);
+    }
+}
+int Administrador::getBloqueCarpetaNombre(char path[],SuperBloque sb,iNodo inodo_actual,string nombre_directorio){
+    int encontro_directorio=-1;
+    int i;
+    for (i=0;i<12;i++) {
+        if(inodo_actual.i_block[i]!=-1){
+            //Si es diferente de 0 jalamos el bloque carpeta
+            BloqueCarpeta carpeta= getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
+            for (int j = 0;j<4;j++) {
+                if(strcmp(carpeta.b_content[j].b_name,nombre_directorio.data())==0){
+                    //Si son iguales
+                    encontro_directorio=inodo_actual.i_block[i];
+                    break;
+                }
+            }
+        }
+    }
+    if(encontro_directorio!=-1)
+        return  encontro_directorio;
+    else{
+        //Buscar en indirectos
+        for (i=12;i<15;i++) {
+            int directorio = getBloqueCarpetaNombreIndirecto(path,sb,inodo_actual.i_block[i],nombre_directorio,i-11);
+            if(directorio!=-1){
+                return directorio;
+            }
+        }
+    }
+    return -1;
+}
+
+int Administrador::getBloqueCarpetaNombreIndirecto(char path[],SuperBloque sb,int bloqueApuntador,string nombre_directorio,int tipoIndirecto){
+    int i;
+    if(tipoIndirecto==1){
+
+        //Sacamos un bloque directo
+        BloqueApuntador bloque =  getBloqueApuntador(path,sb.s_block_start,bloqueApuntador);
+        for (i=0;i<16;i++) {
+            if(bloque.b_pointers[i]!=-1){
+                BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,bloque.b_pointers[i]);
+                for (int j = 0;j<4;j++) {
+                    if(strcmp(carpeta.b_content[j].b_name,nombre_directorio.data())==0){
+                        return bloque.b_pointers[i];
+                    }
+                }
+            }
+        }
+    }else{
+        BloqueApuntador bloque = getBloqueApuntador(path,sb.s_block_start,bloqueApuntador);
+        for (i=0;i<16;i++) {
+            int test = getBloqueCarpetaNombreIndirecto(path,sb,bloque.b_pointers[i],nombre_directorio,tipoIndirecto-1);
+            if(test!=-1){
+                return test;
+            }
+        }
+    }
+    return -1;
+}
+
+void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras){
+    char path[200];
+    strcpy(path,part->path);
+    //Obtener carpeta actual
+    iNodo inodo_actual,inodo_siguiente;
+    int posicionInodo = sb.s_inode_start+posBitmap*sizeof (iNodo);
+    FILE* archivo = fopen(path,"rb+");
+    fseek(archivo,posicionInodo,SEEK_SET);
+    fread(&inodo_actual,sizeof (iNodo),1,archivo);
+    fclose(archivo);
+    if(posActualCarpeta==numero_directorios){
+        cout<<"ERROR, ESTA REPETIDO PERRO:"<<array_directorios[numero_directorios-1]<<endl;
+        return;
+    }
+    int encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios.at(posActualCarpeta));
+//    int encontro_directorio=0;
+//    int i;
+//    for (i=0;i<12;i++) {
+//        if(inodo_actual.i_block[i]!=-1){
+//            //Si es diferente de 0 jalamos el bloque carpeta
+//            BloqueCarpeta carpeta;
+//            int indice = sb.s_block_start+inodo_actual.i_block[i]*sizeof (BloqueCarpeta);
+//            archivo = fopen(path,"rb+");
+//            fseek(archivo,indice,SEEK_SET);
+//            fread(&carpeta,sizeof (BloqueCarpeta),1,archivo);
+//            fclose(archivo);
+//            for (int j = 0;j<4;j++) {
+//                if(strcmp(carpeta.b_content[j].b_name,array_directorios[posActualCarpeta].data())==0){
+//                    //Si son iguales
+//                    encontro_directorio=1;
+//                    posBitmap = carpeta.b_content[j].b_inodo;
+//                }
+//            }
+//        }
+//    }
+
+    if(encontro_directorio == -1){
+        //Si no lo encontró, vemos si se crea en esta dirección
+        if(numero_directorios==posActualCarpeta+1){
+            insertarCarpeta(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual);
+        }else{
+            cout<<"ERROR, EL PATH NO EXISTE"<<endl;
+        }
+    }else{
+        //Actualizamos el posbitmap
+        BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
+        for (int i = 0;i<4;i++) {
+            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+                posBitmap = carpeta.b_content[i].b_inodo;
+                break;
+            }
+        }
+        //Si lo encontró en los directorios
+        crearCarpeta(sb,posBitmap,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras);
+    }
+}
+
+void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, char *path, iNodo nodo){
+    char uno ='1';
+    iNodo inodo_actual;
+    int i;
+    int inicio = sb.s_inode_start+posBitmap*sizeof (iNodo);
+    FILE* archivo = fopen(path,"rb+");
+    fseek(archivo,inicio,SEEK_SET);
+    fread(&inodo_actual,sizeof (iNodo),1,archivo);
+    fclose(archivo);
+
+    bool tiene_permiso = false;
+    if(sesion->groupid==1){
+        tiene_permiso = true;
+    }
+    if(!tiene_permiso){
+        tiene_permiso = validarPermisoEscritura(inodo_actual);
+    }
+    if(tiene_permiso){
+        int primer_inodo_libre = sb.s_first_ino;
+        int libre_en_subdir=-1;
+        int libre_en_carpeta = -1;
+        archivo = fopen(path,"rb+");
+        for (i=0;i<12;i++) {
+            if(inodo_actual.i_block[i]!=-1){
+                BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
+
+                int j = 0;
+                for (j=0;j<4;j++) {
+                    if(carpeta.b_content[j].b_inodo==-1){
+                        libre_en_subdir = i;
+                        libre_en_carpeta = j;
+                        break;
+                    }
+                }
+                if(libre_en_carpeta!=-1)
+                    break;
+            }else{
+                libre_en_subdir=-2;
+            }
+        }
+        if(libre_en_subdir!=-1){
+            //Inserción en directos
+            if(sb.s_filesystem_type==3){
+                Journal journal_carpeta;
+                journal_carpeta.log_tipo=0;
+                journal_carpeta.log_tipo_operacion=0;
+                strcmp(journal_carpeta.log_path,path); //CHECK
+                journal_carpeta.contenido=0;
+                journal_carpeta.log_propietario=sesion->usrid;
+                journal_carpeta.log_grupo = sesion->groupid;
+                strcpy(journal_carpeta.log_nombre,array_directorios[posActualCarpeta].data());
+                journal_carpeta.ugo = 664;
+                escribirJournal(journal_carpeta,path,sb,nEstructuras,part->byteInicio+sizeof (SuperBloque));
+            }
+
+            BloqueCarpeta carpeta_actual = getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[0]);
+
+            if(libre_en_subdir==-2){
+                for (i=0;i<12;i++) {
+                    if(inodo_actual.i_block[i]==-1){
+                        libre_en_subdir = i;
+                        break;
+                    }
+                }
+                int pos_nuevo_bcarpeta = sb.s_first_blo;
+                inodo_actual.i_block[libre_en_subdir]=pos_nuevo_bcarpeta;
+
+                escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
+                sb.s_free_block_count--;
+                sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+                BloqueCarpeta carpeta_nueva;
+                for (i=0;i<4;i++) {
+                    carpeta_nueva.b_content[i].b_inodo=-1;
+                }
+                libre_en_carpeta=0;
+                escribirBloqueCarpeta(carpeta_nueva,path,sb,pos_nuevo_bcarpeta);
+            }
+
+
+
+            iNodo inodo_nuevo = nuevoInodo(0,0);
+            BloqueCarpeta carpeta_nueva= carpetaInicial(carpeta_actual.b_content[0].b_inodo,primer_inodo_libre);
+            archivo = fopen(path,"rb+");
+            BloqueCarpeta carpeta_escritura=getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[libre_en_subdir]);
+            fclose(archivo);
+            inodo_actual.i_mtime=time(0);
+            strcpy(carpeta_escritura.b_content[libre_en_carpeta].b_name,array_directorios[posActualCarpeta].data());
+            carpeta_escritura.b_content[libre_en_carpeta].b_inodo=primer_inodo_libre;
+            inodo_nuevo.i_block[0]=sb.s_first_blo;
+            escribirInodo(inodo_actual,path,sb,posBitmap);
+            escribirInodo(inodo_nuevo,path,sb,primer_inodo_libre);
+            escribirBloqueCarpeta(carpeta_escritura,path,sb,inodo_actual.i_block[libre_en_subdir]);
+            escribirBloqueCarpeta(carpeta_nueva,path,sb,sb.s_first_blo);
+
+            escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
+            sb.s_free_block_count--;
+            escribirPosBitmap(sb.s_bm_inode_start,primer_inodo_libre,path,uno);
+            sb.s_free_inode_count--;
+            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+            sb.s_first_ino = getFirstFreeBit(sb.s_bm_inode_start,nEstructuras,path);
+
+            escribirSuperBloque(path,sb,part->byteInicio);
+        }else{
+            //Inserción en indirectos;CHECK
+            for (i=12;i<15;i++) {
+                if(inodo_actual.i_block[i]!=-1){
+                    if(insertarCarpetaApuntador(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual.i_block[i],i-11)==true){
+                        break;
+                    }
+                }else{
+                    //Crear indirecto e insertar un nuevo bloque ahí
+                    inodo_actual.i_block[i]=sb.s_first_blo;
+                    crearBloqueApuntador(path,0,sb,i-11,inodo_actual.i_type,nEstructuras);
+                    SuperBloque sb1 = getSuperBloque(sesion->idPart);
+                    insertarCarpetaApuntador(sb1,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual.i_block[i],i-11);
+                    break;
+                }
+            }
+            cout<<"ERROR, INDIRECTOS NO CREADOS"<<endl;
+        }
+    }else{
+        cout<<"ERROR MKDIR, NO TIENE PERMISOS PARA ESCRITURA"<<endl;
+    }
+}
+
+
+bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, char *path, int posApuntador, int tipoIndirecto){
+    BloqueApuntador apuntador_actual = getBloqueApuntador(path,sb.s_block_start,posApuntador);
+    iNodo inodo_actual = getInodo(path,sb.s_inode_start,posBitmap);
+    int i = 0;
+    int libre_en_subdir = -1;
+    int libre_en_carpeta=-1;
+    int primer_inodo_libre = sb.s_first_ino;
+    char uno = '1';
+    if(tipoIndirecto==1){
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]!=-1){
+                BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
+
+                int j = 0;
+                for (j=0;j<4;j++) {
+                    if(carpeta.b_content[j].b_inodo==-1){
+                        libre_en_subdir = i;
+                        libre_en_carpeta = j;
+                        break;
+                    }
+                }
+                if(libre_en_carpeta!=-1)
+                    break;
+            }else{
+                libre_en_subdir=-2;
+            }
+        }
+
+        if(libre_en_subdir!=-1){
+            //Inserción en directos
+            if(sb.s_filesystem_type==3){
+                Journal journal_carpeta;
+                journal_carpeta.log_tipo=0;
+                journal_carpeta.log_tipo_operacion=0;
+                strcmp(journal_carpeta.log_path,path); //CHECK
+                journal_carpeta.contenido=0;
+                journal_carpeta.log_propietario=sesion->usrid;
+                journal_carpeta.log_grupo = sesion->groupid;
+                strcpy(journal_carpeta.log_nombre,array_directorios[posActualCarpeta].data());
+                journal_carpeta.ugo = 664;
+                escribirJournal(journal_carpeta,path,sb,nEstructuras,part->byteInicio+sizeof (SuperBloque));
+            }
+
+            BloqueCarpeta carpeta_actual = getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[0]);
+
+            if(libre_en_subdir==-2){
+                for (i=0;i<16;i++) {
+                    if(inodo_actual.i_block[i]==-1){
+                        libre_en_subdir = i;
+                        break;
+                    }
+                }
+                if(libre_en_subdir==-2){
+                    //ta lleno
+                    return false;
+                }
+                int pos_nuevo_bcarpeta = sb.s_first_blo;
+                inodo_actual.i_block[libre_en_subdir]=pos_nuevo_bcarpeta;
+
+                escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
+                sb.s_free_block_count--;
+                sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+                BloqueCarpeta carpeta_nueva;
+                for (i=0;i<4;i++) {
+                    carpeta_nueva.b_content[i].b_inodo=-1;
+                }
+                libre_en_carpeta=0;
+                escribirBloqueCarpeta(carpeta_nueva,path,sb,pos_nuevo_bcarpeta);
+            }
+
+            iNodo inodo_nuevo = nuevoInodo(0,0);
+            BloqueCarpeta carpeta_nueva= carpetaInicial(carpeta_actual.b_content[0].b_inodo,primer_inodo_libre);
+            BloqueCarpeta carpeta_escritura=getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[libre_en_subdir]);
+
+            inodo_actual.i_mtime=time(0);
+            strcpy(carpeta_escritura.b_content[libre_en_carpeta].b_name,array_directorios[posActualCarpeta].data());
+            carpeta_escritura.b_content[libre_en_carpeta].b_inodo=primer_inodo_libre;
+            inodo_nuevo.i_block[0]=sb.s_first_blo;
+            escribirInodo(inodo_actual,path,sb,posBitmap);
+            escribirInodo(inodo_nuevo,path,sb,primer_inodo_libre);
+            escribirBloqueCarpeta(carpeta_escritura,path,sb,inodo_actual.i_block[libre_en_subdir]);
+            escribirBloqueCarpeta(carpeta_nueva,path,sb,sb.s_first_blo);
+
+            escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
+            sb.s_free_block_count--;
+            escribirPosBitmap(sb.s_bm_inode_start,primer_inodo_libre,path,uno);
+            sb.s_free_inode_count--;
+            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+            sb.s_first_ino = getFirstFreeBit(sb.s_bm_inode_start,nEstructuras,path);
+
+            escribirSuperBloque(path,sb,part->byteInicio);
+    }
+        return false;
+    }else{
+        bool pudoEscribir = false;
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]!=-1){
+                pudoEscribir = insertarCarpetaApuntador(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,apuntador_actual.b_pointers[i],tipoIndirecto-1);
+                if(pudoEscribir){
+                    return pudoEscribir;
+                }
+            }
+        }
+        int j=-1;
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]==-1){
+                j = i;
+            }
+        }
+        if(j!=-1){
+            //Si es un segundo o tercer indirecto entonces verificamos que no tenga que crear un nuevo bloque indirecto
+            apuntador_actual.b_pointers[j]=sb.s_first_blo;
+            crearBloqueApuntador(path,0,sb,tipoIndirecto-1,inodo_actual.i_type,nEstructuras);
+            SuperBloque sb1 = getSuperBloque(sesion->idPart);
+            return insertarCarpetaApuntador(sb1,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,apuntador_actual.b_pointers[j],tipoIndirecto-1);
+        }else{
+            return false;
+        }
+    }
+}
+
+BloqueApuntador Administrador::getApuntadorLibre(char path[],int inicio,int posActual,int tipoIndirecto){
+    BloqueApuntador actual = getBloqueApuntador(path,inicio,posActual);
+    for (int i =0;i<16;i++) {
+        if(actual.b_pointers[i]==-1){
+            return actual;
+        }else{
+            //CHECK
+            return getApuntadorLibre(path,inicio,actual.b_pointers[i],tipoIndirecto-1);
+        }
+    }
+}
+
+
+void Administrador::crearBloqueApuntador(char path[], int apActual, SuperBloque sb, int tipoIndirecto,int tipoBloque, int nEstructuras){
+    BloqueApuntador nuevo;
+    int i ;
+
+    for (i=0;i<16;i++) {
+        nuevo.b_pointers[i]=-1;
+    }
+
+    if(tipoIndirecto==1){
+        escribirBloqueApuntador(nuevo,path,sb,sb.s_first_blo);
+        escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,'1');
+        sb.s_free_block_count--;
+        sb.s_first_blo=getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+        escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
+
+    }else{
+        int actual = sb.s_first_blo;
+        escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,'1');
+        sb.s_free_block_count--;
+        sb.s_first_blo=getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+        nuevo.b_pointers[0]=sb.s_first_blo;
+        escribirBloqueApuntador(nuevo,path,sb,actual);
+        escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
+        crearBloqueApuntador(path,apActual,sb,tipoIndirecto-1,tipoBloque,nEstructuras);
+    }
+
+}
+void Administrador::escribirBloqueApuntador(BloqueApuntador bloque_apuntador, char *path, SuperBloque sb, int posicion){
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,sb.s_block_start+posicion*sizeof (BloqueApuntador),SEEK_SET);
+        fwrite(&bloque_apuntador,sizeof (BloqueApuntador),1,archivo);
+        fclose(archivo);
+    }
+}
+
+void Administrador::escribirSuperBloque(char *path, SuperBloque sb,int inicio){
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,inicio,SEEK_SET);
+        fwrite(&sb,sizeof (SuperBloque),1,archivo);
+        fclose(archivo);
+    }
+}
+
+void Administrador::escribirPosBitmap(int inicio, int posicion,char path[],char valor){
+    FILE* archivo = fopen(path,"rb+");
+    cout<<"             POSICION A ESCRIBIR:" <<posicion<<endl;
+    if(archivo){
+        fseek(archivo,inicio+posicion,SEEK_SET);
+        fwrite(&valor,1,1,archivo);
+        fclose(archivo);
+    }
+}
+
+void Administrador::escribirBloqueCarpeta(BloqueCarpeta carpeta,char*path,SuperBloque sb, int posicion){
+    FILE* archivo = fopen(path,"rb+");
+    int inicio = sb.s_block_start+posicion*sizeof (BloqueCarpeta);
+    if(archivo){
+
+        fseek(archivo,inicio,SEEK_SET);
+        fwrite(&carpeta,sizeof (BloqueCarpeta),1,archivo);
+        fclose(archivo);
+    }else{
+        cout<<"ERROR MKDIR, AL ESCRIBIR BLOQUECARPETA:"<<carpeta.b_content[0].b_inodo;
+    }
+}
+void Administrador::escribirInodo(iNodo inodo,char* path, SuperBloque sb,int posicion){
+    FILE* archivo = fopen(path,"rb+");
+    int inicio = sb.s_inode_start+posicion*sizeof (iNodo);
+    if(archivo){
+
+        fseek(archivo,inicio,SEEK_SET);
+        fwrite(&inodo,sizeof (iNodo),1,archivo);
+        fclose(archivo);
+    }else{
+        cout<<"ERROR MKDIR, AL ESCRIBIR NODO:"<<(int)inodo.i_type;
+    }
+}
+bool Administrador::validarPermisoEscritura(iNodo inodo_actual){
+    return true;
+}
+BloqueCarpeta Administrador::carpetaInicial(int padre, int actual){
+    BloqueCarpeta carpeta;
+    strcpy(carpeta.b_content[0].b_name,".");
+    carpeta.b_content[0].b_inodo = actual;
+    strcpy(carpeta.b_content[1].b_name,"..");
+    carpeta.b_content[1].b_inodo=padre;
+    carpeta.b_content[2].b_inodo=-1;
+    carpeta.b_content[3].b_inodo =-1;
+    return  carpeta;
+}
+iNodo Administrador::nuevoInodo(int tamano,char tipo){
+    iNodo nuevo;
+    nuevo.i_gid=sesion->groupid;
+    nuevo.i_uid = sesion->usrid;
+    nuevo.i_size = tamano;
+    nuevo.i_type = tipo;
+    nuevo.i_atime = nuevo.i_ctime = nuevo.i_mtime = time(0);
+    for (int i = 0;i<15;i++) {
+        nuevo.i_block[i]=-1;
+    }
+    nuevo.i_perm_lectura=6;
+    nuevo.i_perm_escritura=4;
+    nuevo.i_perm_ejecucion=4;
+    return nuevo;
+
+}
 void Administrador::recuperar(Funcion *funcion){
 
 }
@@ -1647,10 +2239,31 @@ void Administrador::generarReporte(Funcion *funcion, string nombreRep){
     }else if(path[tamano-1]=='n'){
         sprintf(cmd,"dot -Tpng  '/home/mia/Reportes/%s.dot' -o %s",nombreRep.data(),funcion->path.data());
         system(cmd);
+    }else if(path[tamano-1]=='v'){
+        sprintf(cmd,"dot -Tsvg  '/home/mia/Reportes/%s.dot' -o %s",nombreRep.data(),funcion->path.data());
+        system(cmd);
     }
     else{
         printf("formato no reconocido\n");
     }
+}
+
+int Administrador::getFirstFreeBit(int inicio, int nEstruct, char path[]){
+    int posActual =-1;
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,inicio,SEEK_SET);
+        char bit;
+        for (int i =0;i<nEstruct;i++) {
+            fread(&bit,sizeof(char),1,archivo);
+            if(bit=='0'){
+                posActual=i;
+                cout<<"         POSICION LEIDA : "<<i<<endl;
+                break;
+            }
+        }
+    }
+    return posActual;
 }
 
 int Administrador::getFFByte(FILE *file, int tamano){

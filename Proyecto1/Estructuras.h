@@ -82,7 +82,9 @@ typedef struct{
     char log_nombre[16];
     char log_path[128];
     char contenido;
-    char log_propietario[12];
+    int log_propietario;
+    int log_grupo;
+    int ugo;
 } Journal;
 
 typedef struct{

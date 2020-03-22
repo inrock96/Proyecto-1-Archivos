@@ -2,13 +2,14 @@
 #define SESION_H
 
 #include "string"
+#include "string.h"
 
 class Sesion
 {
 public:
     std::string usuario;
     std::string contrasena;
-    std::string idPart;
+    char idPart[5];
     int groupid;
     int usrid;
     int tipo;

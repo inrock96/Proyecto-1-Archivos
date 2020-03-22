@@ -3,7 +3,7 @@
 Sesion::Sesion()
 {
     this->usrid = -1;
-    this->idPart = "";
+    this->idPart[0]='\0';
     this->groupid = -1;
     this->tipo = -1;
     this->usuario="";
@@ -13,12 +13,12 @@ Sesion::Sesion()
 void Sesion::iniciarSesion(std::string usuario, std::string contrasena, std::string idPart){
     this->usuario = usuario;
     this->contrasena = contrasena;
-    this->idPart = idPart;
+    strcpy(this->idPart,idPart.data());
 }
 
 void Sesion::cerrarSesion(){
     this->usrid = -1;
-    this->idPart = -1;
+    strcpy(this->idPart,"");
     this->groupid = -1;
     this->tipo = -1;
     this->usuario="";

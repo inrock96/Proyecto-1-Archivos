@@ -346,7 +346,7 @@ void Interprete::ejecutar(string entrada){
                 }
             }else{
                 //Ahora come caracteres hasta llegar al otro parametro
-                while (comando[contador]!='&') {
+                while (comando[contador]!='-') {
                     contador++;
                 }
             }
@@ -451,8 +451,6 @@ void Interprete::ejecutar(string entrada){
                     break;
             }
 }
-
-
 
 
 

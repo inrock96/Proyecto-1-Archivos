@@ -2,6 +2,7 @@
 #define ADMINISTRADOR_H
 
 #include "funcion.h"
+#include <vector>
 #include "listadisco.h"
 #include "Estructuras.h"
 #include "math.h"
@@ -82,10 +83,11 @@ private:
     int numeroEstructuras(int tamanoPart, int tipo);
     SuperBloque crearSuperBloque(int bit_inicio,int tamano,NodoParticion *part,int tipo);
     void escribirBitMap(int inicio,int n,FILE* archivo);
+    void escribirPosBitmap(int inicio, int posicion, char path[],char valor);
     int getNumeroBloques(int size);
     void escribirBloques(int noBloques, FILE* archivo,char* contenido, int tamano);
     int getUltimoNBloques(int cont);
-    void escribirSuperBloque(char* path,SuperBloque super);
+    void escribirSuperBloque(char* path,SuperBloque sb, int inicio);
     SuperBloque getSuperBloque(char* ide);
     void horaAString(char* output,time_t t);
     Usuario *getUsuario(string usr, NodoParticion* part);
@@ -94,17 +96,29 @@ private:
     bool hayLogicas(char* path);
     int numeroDirectorios(char* path);
     bool estaLoggeado(char* id);
-    BloqueCarpeta getBloqueCarpeta(FILE* archivo,int inicio, int pos);
-    BloqueArchivo getBloqueArchivo(FILE* archivo,int inicio, int pos);
-    BloqueApuntador getBloqueApuntador(FILE* archivo,int inicio, int pos);
+    iNodo getInodo(char path[],int inicio, int pos);
+    BloqueApuntador getApuntadorLibre(char path[],int inicio,int posActual,int tipoIndirecto);
+    BloqueCarpeta getBloqueCarpeta(char path[],int inicio, int pos);
+    BloqueArchivo getBloqueArchivo(char path[],int inicio, int pos);
+    BloqueApuntador getBloqueApuntador(char path[],int inicio, int pos);
+    int getBloqueCarpetaNombre(char path[],SuperBloque sb,iNodo inodo_actual,string nombre_directorio);
+    int getBloqueCarpetaNombreIndirecto(char path[],SuperBloque sb,int bloqueApuntador,string nombre_directorio,int tipoIndirecto);
     void leerBMInodo(int inicio, int n,char* path,Bitmap *bmInodo);
     iNodo getInodoUsuarios(Sesion sesion);
-//    void crearCarpeta(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
-//    void crearPadres(SuperBoot super, int posBtimap, string nombresDir[],int posActualCarpeta, int numeroCarpetas, NodoParticion* part,int nEstructuras);
-//    void insertarCarpeta(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
-    int getFirstFreeBit(int inicio,int nEstruct,FILE* archivo);
+    BloqueCarpeta carpetaInicial(int padre, int actual);
+    void crearCarpeta(SuperBloque sb,int posBitmap,vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras);
+    void crearPadres(SuperBloque sb, int posBtimap, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part,int nEstructuras);
+    void insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo);
+    bool insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],int posApuntador,int tipoIndirecto);
+
+    int getFirstFreeBit(int inicio,int nEstruct,char path[]);
     int getPosJournal(int inicio, int nEstruct,FILE* archivo);
     string getFileName(char path[]);
+    iNodo nuevoInodo(int tamano,char tipo);
+    bool validarPermisoEscritura(iNodo inodo_actual);
+    void escribirBloqueCarpeta(BloqueCarpeta carpeta,char*path,SuperBloque sb, int posicion);
+    void escribirBloqueApuntador(BloqueApuntador bloque_apuntador,char*path,SuperBloque sb, int posicion);
+    void escribirInodo(iNodo inodo,char* path, SuperBloque sb,int posicion);
 //    void crearFile(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
 //    void insertarArchivo(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
     //void crearInodo(SuperBloque super,Arbol_Virtual_Directorio nodoAvd,Detalle_Directorio detalle,int nEstructuras,NodoParticion* part,int posBitmap,int size, char cont[],int apInodo,char nombre[]);
@@ -112,14 +126,16 @@ private:
 //    void crearBloque(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part);
     void insertarBloque(SuperBloque super,iNodo nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
     char * toArray(int numero);
+    void crearBloqueApuntador(char path[], int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque,int nEstructuras);
+
     void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras, int inicio);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
-    void definirInodoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
+    void definirInodoTree(FILE* archivo, char path[],int apActual,SuperBloque sb);
 //    void definirDDTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
-    void definirIndirectoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
-    void definirCarpetaTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
-    void definirArchivoTree(FILE* archivo, FILE* archivoTree,int apActual,SuperBloque sb);
+    void definirIndirectoTree(FILE* archivo, char path[],int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
+    void definirCarpetaTree(FILE* archivo, char path[],int apActual,SuperBloque sb);
+    void definirArchivoTree(FILE* archivo, char path[],int apActual,SuperBloque sb);
 //    void definirAVDTreeDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
 //    void definirDDDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
 //    void definirInodeDir(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super);
