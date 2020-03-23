@@ -8,6 +8,9 @@
 #include "math.h"
 #include "usuario.h"
 #include "sesion.h"
+#include "chrono"
+#include "thread"
+#include "fstream"
 class Administrador
 {
 public:
@@ -108,6 +111,7 @@ private:
     BloqueCarpeta carpetaInicial(int padre, int actual);
     void crearCarpeta(SuperBloque sb,int posBitmap,vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras);
     void crearPadres(SuperBloque sb, int posBtimap, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part,int nEstructuras);
+    void crearFile(SuperBloque sb, int posBitmap,string nombre_archivo, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part, int nEstructuras);
     void insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo);
     bool insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],int posApuntador,int tipoIndirecto);
 
