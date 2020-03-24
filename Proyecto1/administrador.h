@@ -106,14 +106,16 @@ private:
     BloqueApuntador getBloqueApuntador(char path[],int inicio, int pos);
     int getBloqueCarpetaNombre(char path[],SuperBloque sb,iNodo inodo_actual,string nombre_directorio);
     int getBloqueCarpetaNombreIndirecto(char path[],SuperBloque sb,int bloqueApuntador,string nombre_directorio,int tipoIndirecto);
+
     void leerBMInodo(int inicio, int n,char* path,Bitmap *bmInodo);
     iNodo getInodoUsuarios(Sesion sesion);
     BloqueCarpeta carpetaInicial(int padre, int actual);
     void crearCarpeta(SuperBloque sb,int posBitmap,vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras);
     void crearPadres(SuperBloque sb, int posBtimap, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part,int nEstructuras);
-    void crearFile(SuperBloque sb, int posBitmap,string nombre_archivo, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part, int nEstructuras);
+    void crearFile(SuperBloque sb, int posBitmap,string nombre_archivo, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part, int nEstructuras,int tamano,string contenido);
     void insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo);
     bool insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],int posApuntador,int tipoIndirecto);
+    void insertarFile(SuperBloque sb, int posBitmap, vector<string>array_directorios,string nombre_archivo,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo,int tamano,string contenido);
 
     int getFirstFreeBit(int inicio,int nEstruct,char path[]);
     int getPosJournal(int inicio, int nEstruct,FILE* archivo);

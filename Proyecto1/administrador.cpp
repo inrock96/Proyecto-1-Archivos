@@ -1618,6 +1618,7 @@ void Administrador::crearArchivo(Funcion *funcion){
             vector<string> array_directorios;
             int contadorActual = 0;
             int cont = 0;
+            funcion->getName();
             string nombre_archivo = funcion->fileName;
             bool banderaPath = false;
             char pDirectorios[300];
@@ -1648,10 +1649,10 @@ void Administrador::crearArchivo(Funcion *funcion){
             if(funcion->opciones[14]==1){
                 //opcion -p
                 crearPadres(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
-                crearFile(sb,0,nombre_archivo,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+                crearFile(sb,0,nombre_archivo,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type),size,contenido);
             }else{
                 //Solo crear la última carpeta
-                crearFile(sb,0,nombre_archivo,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+                crearFile(sb,0,nombre_archivo,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type),size,contenido);
             }
         }else{
             cout<<"ERROR MKFILE, PATH MALFORMADO"<<endl;
@@ -1664,7 +1665,62 @@ void Administrador::crearArchivo(Funcion *funcion){
     }
 }
 
-void Administrador::crearFile(SuperBloque sb, int posBitmap, string nombre_archivo, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras){
+void Administrador::crearFile(SuperBloque sb,
+                              int posBitmap, string nombre_archivo,
+                              vector<string> array_directorios,
+                              int posActualCarpeta,
+                              int numero_directorios,
+                              NodoParticion *part,
+                              int nEstructuras,
+                              int tamano,
+                              string contenido){
+    char path[200];
+    strcpy(path,part->path);
+    //Obtenemos la carpeta actual
+    iNodo inodo_actual = getInodo(part->path,sb.s_inode_start,posBitmap);
+
+    if(posActualCarpeta==numero_directorios){
+        cerr<<"ERROR, ESTA REPETIDO PERRO:"<<array_directorios[numero_directorios-1]<<endl;
+        return;
+    }
+    int encontro_directorio ;
+    if(posActualCarpeta+1==numero_directorios){
+        encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,nombre_archivo);
+    }else{
+        encontro_directorio= getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios[posActualCarpeta]);
+    }
+    if(encontro_directorio==-1){
+        if(numero_directorios==posActualCarpeta+1){
+            insertarFile(sb,posBitmap,array_directorios,nombre_archivo,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual,tamano,contenido);
+        }else{
+            cerr<<"ERROR, EL PATH NO EXISTE"<<endl;
+        }
+    }else{
+        BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
+        for (int i = 0;i<4;i++) {
+            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+                if(carpeta.b_content[i].b_inodo!=-1){
+                    posBitmap = carpeta.b_content[i].b_inodo;
+                    break;
+                }
+            }
+        }
+        crearFile(sb,posBitmap,nombre_archivo,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras,tamano,contenido);
+    }
+}
+
+void Administrador::insertarFile(SuperBloque sb,
+                                 int posBitmap,
+                                 vector<string> array_directorios,
+                                 string nombre_archivo,
+                                 int posActualCarpeta,
+                                 int numero_directorios,
+                                 NodoParticion *part,
+                                 int nEstructuras,
+                                 char *path,
+                                 iNodo nodo,
+                                 int tamano,
+                                 string contenido){
 
 }
 
@@ -1728,10 +1784,10 @@ void Administrador::crearDirectorio(Funcion *funcion){
                 cout<<"ERROR MKDIR, SESION NO INICIADA"<<endl;
             }
         }else{
-            cout<<"ERROR MKDIR, PARTICION NO MONTADA"<<endl;
+            cerr<<"ERROR MKDIR, PARTICION NO MONTADA"<<endl;
         }
     }else{
-        cout<<"ERROR MKDIR, FALTAN PARAMETROS"<<endl;
+        cerr<<"ERROR MKDIR, FALTAN PARAMETROS"<<endl;
     }
 }
 
@@ -1838,6 +1894,7 @@ int Administrador::getBloqueCarpetaNombre(char path[],SuperBloque sb,iNodo inodo
     }
     return -1;
 }
+
 
 int Administrador::getBloqueCarpetaNombreIndirecto(char path[],SuperBloque sb,int bloqueApuntador,string nombre_directorio,int tipoIndirecto){
     int i;

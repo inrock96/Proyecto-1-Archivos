@@ -117,7 +117,17 @@ string Funcion::getRaidName(){
 }
 
 void Funcion::getName(){
-
+    int i = 0;
+    string tokenActual="";
+    while(i<path.size()){
+        if(this->path[i]=='/'){
+            tokenActual="";
+        }else{
+            tokenActual+=path[i];
+        }
+        i++;
+    }
+    fileName= tokenActual;
 }
 
 string Funcion::getAbsPath(){

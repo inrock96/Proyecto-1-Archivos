@@ -97,11 +97,15 @@ void Interprete::ejecutar(string entrada){
                     }
                 }
             }else{
-                while (comando[contador]!='=') {
+                while (comando[contador]!='='&&comando[contador]!=NULL) {
                     if(esLetra(comando[contador]))
                         tokenActual+=comando[contador];
                     contador++;
                 }
+            }
+            if(comando[contador]==NULL){
+                cerr<<"ERROR, NO SE IGUALO A NADA"<<endl;
+                return;
             }
             /*Se aumenta uno por el contador+1*/
             contador++;
@@ -112,8 +116,12 @@ void Interprete::ejecutar(string entrada){
                 funcion->opciones[opActual]=1;
 
             //contador++;
-            while(esEspacio(comando[contador]))
+            while(esEspacio(comando[contador])&&comando[contador]!=NULL)
                 contador++;
+            if(comando[contador]==NULL){
+                cerr<<"ERROR, NO SE ENCONTRO EL VALOR DEL PARAMETRO"<<endl;
+                return;
+            }
             cout<<"Se reconoció el parametro: "<<tokenActual<<endl<<endl;
             tokenActual="";
 
