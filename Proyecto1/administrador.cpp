@@ -1451,7 +1451,10 @@ void Administrador::definirArchivoTree(FILE *archivo, char path[], int apActual,
     BloqueArchivo bloque = getBloqueArchivo(path,sb.s_block_start,apActual);
     fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
     char blocazo[65];
-    strcpy(blocazo,bloque.b_content);
+    for (int i=0;i<64;i++) {
+        blocazo[i]=bloque.b_content[i];
+    }
+    blocazo[64]='\0';
     fprintf(archivo,"|%s",blocazo);
     fprintf(archivo, "\",color=white,fillcolor=\"#2A3D45\",fontcolor=white];\n");
 }
@@ -1744,6 +1747,7 @@ void Administrador::insertarFile(SuperBloque sb,
                         if(carpeta.b_content[j].b_inodo==-1){
                             libre_en_subdir=i;
                             libre_en_carpeta=j;
+
                         }
                     }
                     if(libre_en_carpeta!=-1)
@@ -1809,7 +1813,7 @@ void Administrador::insertarFile(SuperBloque sb,
                 escribirSuperBloque(path,sb,part->byteInicio);
                 SuperBloque sb1 = getSuperBloque(sesion->idPart);
                 //Luego insertamos los bloques
-                crearBloques(sb1,posBitmap,inodo_archivo,nEstructuras,path,tamano,contenido);
+                crearBloques(sb1,primer_inodo_libre,inodo_archivo,nEstructuras,path,tamano,contenido);
             }else{
                 for (i=12;i<15;i++) {
                     if(inodo_actual.i_block[i]!=-1){
@@ -1837,6 +1841,139 @@ void Administrador::insertarFile(SuperBloque sb,
 }
 
 void Administrador::crearBloques(SuperBloque sb, int posBitmap, iNodo inodo_archivo, int nEstructuras, char *path, int tamano, string contenido){
+    int numero_bloques = getNumeroBloques(tamano);
+    vector<BloqueArchivo> bloques_archivos;
+    int fin_contenido=10;
+    if(contenido.size()>10){
+        fin_contenido=tamano;
+    }
+    int i;
+    int actual= tamano;
+    int contador_contenido=0;
+    for (i=0;i<numero_bloques;i++) {
+        BloqueArchivo nuevo;
+        for (int j=0;j<64;j++) {
+            if(actual>0){
+                if(fin_contenido<=contador_contenido)
+                    contador_contenido=0;
+                nuevo.b_content[j]=contenido[contador_contenido];
+                contador_contenido++;
+                actual--;
+            }else{
+                if(j<64 )
+                    nuevo.b_content[j]='\0';
+                break;
+            }
+        }
+        bloques_archivos.push_back(nuevo);
+    }
+    for (i=0;i<numero_bloques;i++) {
+        SuperBloque sb1 = getSuperBloque(sesion->idPart);
+        inodo_archivo = getInodo(path,sb1.s_inode_start,posBitmap);
+        insertarBloqueArchivo(sb1,posBitmap,inodo_archivo,nEstructuras,path,bloques_archivos[i]);
+    }
+}
+
+void Administrador::insertarBloqueArchivo(SuperBloque sb,int posBitmap ,iNodo inodo_archivo, int nEstructuras, char *path,BloqueArchivo bloque_actual){
+    char uno = '1';
+    int i;
+    int primer_bloque_libre = sb.s_first_blo;
+    int libre_en_subdir = -1;
+
+    for (i=0;i<12;i++) {
+        if(inodo_archivo.i_block[i]==-1){
+            libre_en_subdir = i;
+            break;
+        }
+    }
+    if(libre_en_subdir!=-1){
+        //Directo
+        inodo_archivo.i_block[libre_en_subdir]=primer_bloque_libre;
+        inodo_archivo.i_mtime=time(0);
+        escribirInodo(inodo_archivo,path,sb,posBitmap);
+        escribirBloqueArchivo(bloque_actual,path,sb,primer_bloque_libre);
+        escribirPosBitmap(sb.s_bm_block_start,primer_bloque_libre,path,uno);
+        sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+        sb.s_free_block_count-=1;
+        NodoParticion*part = listaDisco->existeId(sesion->idPart);
+        escribirSuperBloque(path,sb,part->byteInicio);
+
+    }else{
+        //Indirecto
+        for(i=12;i<15;i++){
+            if(inodo_archivo.i_block[i]!=-1){
+                if(insertarBloqueArchivoApuntador(sb,posBitmap,nEstructuras,path,inodo_archivo.i_block[i],i-11,bloque_actual)==true){
+                    break;
+                }
+            }else{
+                //crear indirecto e insertar un nuevo bloque
+                inodo_archivo.i_block[i]=sb.s_first_blo;
+                escribirInodo(inodo_archivo,path,sb,posBitmap);
+                crearBloqueApuntador(path,0,sb,i-11,inodo_archivo.i_type,nEstructuras);
+                SuperBloque sb1 = getSuperBloque(sesion->idPart);
+                if(insertarBloqueArchivoApuntador(sb1,posBitmap,nEstructuras,path,inodo_archivo.i_block[i],i-11,bloque_actual)==true)
+                    break;
+            }
+        }
+    }
+}
+
+bool Administrador::insertarBloqueArchivoApuntador(SuperBloque sb,int posInodo, int nEstructuras, char *path, int posApuntador, int tipoIndirecto,BloqueArchivo bloque_archivo){
+    BloqueApuntador apuntador_actual = getBloqueApuntador(path,sb.s_block_start,posApuntador);
+    iNodo inodo_archivo = getInodo(path,sb.s_inode_start,posInodo);
+
+    int i = 0;
+    int libre_en_subdir = -1;
+    int primer_bloque_libre = sb.s_first_blo;
+    char uno ='1';
+    if(tipoIndirecto==1){
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]==-1){
+                libre_en_subdir=i;
+                break;
+            }
+        }
+        if(libre_en_subdir!=-1){
+            //Inseracion en indirectos
+            inodo_archivo.i_mtime=time(0);
+            apuntador_actual.b_pointers[libre_en_subdir]=primer_bloque_libre;
+            escribirInodo(inodo_archivo,path,sb,posInodo);
+            escribirBloqueArchivo(bloque_archivo,path,sb,primer_bloque_libre);
+            escribirPosBitmap(sb.s_bm_block_start,primer_bloque_libre,path,uno);
+            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+            sb.s_free_block_count--;
+            NodoParticion * part = listaDisco->existeId(sesion->idPart);
+            escribirBloqueApuntador(apuntador_actual,path,sb,posApuntador);
+            escribirSuperBloque(path,sb,part->byteInicio);
+            return true;
+        }
+    }else{
+        bool pudoEscribir = false;
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]!=-1){
+                pudoEscribir = insertarBloqueArchivoApuntador(sb,posInodo,nEstructuras,path,apuntador_actual.b_pointers[i],tipoIndirecto-1,bloque_archivo);
+                if(pudoEscribir)
+                    return  pudoEscribir;
+            }
+        }
+        int j = -1;
+        for (i=0;i<16;i++) {
+            if(apuntador_actual.b_pointers[i]==-1){
+
+                j=i;
+                break;
+            }
+        }
+        if(j!=-1){
+            apuntador_actual.b_pointers[j]=sb.s_first_blo;
+            crearBloqueApuntador(path,0,sb,tipoIndirecto-1,inodo_archivo.i_type,nEstructuras);
+            SuperBloque sb1 = getSuperBloque(sesion->idPart);
+            return  insertarBloqueArchivoApuntador(sb1,posInodo,nEstructuras,path,apuntador_actual.b_pointers[j],tipoIndirecto-1,bloque_archivo);
+        }else{
+            return false;
+        }
+    }
+    return false;
 
 }
 
@@ -1925,7 +2062,7 @@ bool Administrador::insertarFileApuntador(SuperBloque sb, int posBitmap, string 
             sb.s_first_ino = getFirstFreeBit(sb.s_bm_inode_start,nEstructuras,path);
             escribirBloqueApuntador(apuntador_actual,path,sb,posApuntador);
             escribirSuperBloque(path,sb,part->byteInicio);
-            crearBloques(sb,posBitmap,inodo_nuevo,nEstructuras,path,tamano,contenido);
+            crearBloques(sb,primer_inodo_libre,inodo_nuevo,nEstructuras,path,tamano,contenido);
             return true;
     }
     }else{
@@ -1942,6 +2079,7 @@ bool Administrador::insertarFileApuntador(SuperBloque sb, int posBitmap, string 
         for (i=0;i<16;i++) {
             if(apuntador_actual.b_pointers[i]==-1){
                 j = i;
+                break;
             }
         }
         if(j!=-1){
@@ -2454,6 +2592,7 @@ bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vect
         for (i=0;i<16;i++) {
             if(apuntador_actual.b_pointers[i]==-1){
                 j = i;
+                break;
             }
         }
         if(j!=-1){
@@ -2515,6 +2654,17 @@ void Administrador::escribirBloqueApuntador(BloqueApuntador bloque_apuntador, ch
         fseek(archivo,sb.s_block_start+posicion*sizeof (BloqueApuntador),SEEK_SET);
         fwrite(&bloque_apuntador,sizeof (BloqueApuntador),1,archivo);
         fclose(archivo);
+    }
+}
+
+void Administrador::escribirBloqueArchivo(BloqueArchivo bloque_archivo, char *path, SuperBloque sb, int posicion){
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,sb.s_block_start+posicion*sizeof (BloqueArchivo),SEEK_SET);
+        fwrite(&bloque_archivo,sizeof (BloqueArchivo),1,archivo);
+        fclose(archivo);
+    }else{
+        cerr<<"ERROR, ESCRIBIR BLOQUE ARCHIVO, EL PATH NO EXISTE"<<endl;
     }
 }
 

@@ -115,10 +115,11 @@ private:
     void crearFile(SuperBloque sb, int posBitmap,string nombre_archivo, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part, int nEstructuras,int tamano,string contenido);
     void insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo);
     bool insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],int posApuntador,int tipoIndirecto);
+    bool insertarBloqueArchivoApuntador(SuperBloque sb,int posInodo, int nEstructuras, char path[],int posApuntador,int tipoIndirecto,BloqueArchivo bloque_archivo);
     bool insertarFileApuntador(SuperBloque sb, int posBitmap, string nombre_archivo, NodoParticion *part, int nEstructuras, char *path, int posApuntador, int tipoIndirecto,int tamano, string contenido);
     void insertarFile(SuperBloque sb, int posBitmap, vector<string>array_directorios,string nombre_archivo,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo,int tamano,string contenido);
     void crearBloques(SuperBloque sb, int posBitmap, iNodo inodo_archivo,int nEstructuras,char path[],int tamano, string contenido);
-    void insertarBloqueArchivo(SuperBloque sb, iNodo inodo_archivo,int nEstructuras,char path[],vector<BloqueArchivo> bloques,int bloque_actual);
+    void insertarBloqueArchivo(SuperBloque sb,int posBitmap, iNodo inodo_archivo, int nEstructuras,char path[],BloqueArchivo bloque_archivo);
 
     int getFirstFreeBit(int inicio,int nEstruct,char path[]);
     int getPosJournal(int inicio, int nEstruct,FILE* archivo);
@@ -127,6 +128,7 @@ private:
     bool validarPermisoEscritura(iNodo inodo_actual);
     void escribirBloqueCarpeta(BloqueCarpeta carpeta,char*path,SuperBloque sb, int posicion);
     void escribirBloqueApuntador(BloqueApuntador bloque_apuntador,char*path,SuperBloque sb, int posicion);
+    void escribirBloqueArchivo(BloqueArchivo bloque_archivo,char path[],SuperBloque sb,int posicion);
     void escribirInodo(iNodo inodo,char* path, SuperBloque sb,int posicion);
 //    void crearFile(SuperBoot super,int posBitmap,string nombresDir[],int posActualCarpeta,int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
 //    void insertarArchivo(SuperBoot super,Arbol_Virtual_Directorio nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part,char nombre[],char cont[],int size);
