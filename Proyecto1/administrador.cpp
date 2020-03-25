@@ -2299,9 +2299,9 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
 
                 iNodo inodo_nuevo = nuevoInodo(0,0);
                 BloqueCarpeta carpeta_nueva= carpetaInicial(carpeta_actual.b_content[0].b_inodo,primer_inodo_libre);
-                //archivo = fopen(path,"rb+");
+                archivo = fopen(path,"rb+");
                 BloqueCarpeta carpeta_escritura=getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[libre_en_subdir]);
-                //fclose(archivo);
+                fclose(archivo);
                 inodo_actual.i_mtime=time(0);
                 strcpy(carpeta_escritura.b_content[libre_en_carpeta].b_name,array_directorios[posActualCarpeta].data());
                 carpeta_escritura.b_content[libre_en_carpeta].b_inodo=primer_inodo_libre;
@@ -2418,6 +2418,7 @@ bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vect
             }
 
             iNodo inodo_nuevo = nuevoInodo(0,0);
+            BloqueCarpeta carpeta_nueva= carpetaInicial(carpeta_actual.b_content[0].b_inodo,primer_inodo_libre);
             BloqueCarpeta carpeta_escritura=getBloqueCarpeta(path,sb.s_block_start,apuntador_actual.b_pointers[libre_en_subdir]);
 
             inodo_actual.i_mtime=time(0);
@@ -2427,10 +2428,13 @@ bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vect
             escribirInodo(inodo_actual,path,sb,posBitmap);
             escribirInodo(inodo_nuevo,path,sb,primer_inodo_libre);
             escribirBloqueCarpeta(carpeta_escritura,path,sb,apuntador_actual.b_pointers[libre_en_subdir]);
+            escribirBloqueCarpeta(carpeta_nueva,path,sb,sb.s_first_blo);
 
+            escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
             sb.s_free_block_count--;
             escribirPosBitmap(sb.s_bm_inode_start,primer_inodo_libre,path,uno);
             sb.s_free_inode_count--;
+            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
             sb.s_first_ino = getFirstFreeBit(sb.s_bm_inode_start,nEstructuras,path);
             escribirBloqueApuntador(apuntador_actual,path,sb,posApuntador);
             escribirSuperBloque(path,sb,part->byteInicio);
