@@ -115,7 +115,10 @@ private:
     void crearFile(SuperBloque sb, int posBitmap,string nombre_archivo, vector<string> array_directorios,int posActualCarpeta, int numero_directorios, NodoParticion* part, int nEstructuras,int tamano,string contenido);
     void insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo);
     bool insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string>array_directorios,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],int posApuntador,int tipoIndirecto);
+    bool insertarFileApuntador(SuperBloque sb, int posBitmap, string nombre_archivo, NodoParticion *part, int nEstructuras, char *path, int posApuntador, int tipoIndirecto,int tamano, string contenido);
     void insertarFile(SuperBloque sb, int posBitmap, vector<string>array_directorios,string nombre_archivo,int posActualCarpeta,int numero_directorios,NodoParticion* part,int nEstructuras, char path[],iNodo nodo,int tamano,string contenido);
+    void crearBloques(SuperBloque sb, int posBitmap, iNodo inodo_archivo,int nEstructuras,char path[],int tamano, string contenido);
+    void insertarBloqueArchivo(SuperBloque sb, iNodo inodo_archivo,int nEstructuras,char path[],vector<BloqueArchivo> bloques,int bloque_actual);
 
     int getFirstFreeBit(int inicio,int nEstruct,char path[]);
     int getPosJournal(int inicio, int nEstruct,FILE* archivo);
