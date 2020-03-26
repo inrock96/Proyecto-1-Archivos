@@ -91,7 +91,7 @@ private:
     void escribirBloques(int noBloques, FILE* archivo,char* contenido, int tamano);
     int getUltimoNBloques(int cont);
     void escribirSuperBloque(char* path,SuperBloque sb, int inicio);
-    SuperBloque getSuperBloque(char* ide);
+    SuperBloque getSuperBloque(char ide[]);
     void horaAString(char* output,time_t t);
     Usuario *getUsuario(string usr, NodoParticion* part);
     void discoInterno(int bitActual, MBR mbr,FILE* archivo,NodoParticion* part);

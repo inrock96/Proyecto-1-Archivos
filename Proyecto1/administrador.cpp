@@ -1314,17 +1314,19 @@ void Administrador::discoEBR(int posicion, MBR mbr, FILE *archivo, NodoParticion
     }
 }
 
-SuperBloque Administrador::getSuperBloque(char *ide){
+SuperBloque Administrador::getSuperBloque(char ide[]){
     SuperBloque sb;
-    NodoParticion *part = listaDisco->existeId(ide);
-
+    NodoParticion *part;
+    if(sesion->usrid!=-1)
+        part= listaDisco->existeId(sesion->idPart);
+    else
+        part = listaDisco->existeId(ide);
     FILE *archivo = fopen(part->path,"rb+");
     if(archivo!=nullptr){
         fseek(archivo,part->byteInicio,SEEK_SET);
         fread(&sb, sizeof (SuperBloque),1,archivo);
         cout<<"CONSIGUIO EXITOSAMENTE EL SUPERBLOQUE"<<endl;
         fclose(archivo);
-        part = nullptr;
     }else {
         cout<<"ERROR ABRIR ARCHIVO GET SUPERBLOQUE"<<endl;
     }
@@ -1451,6 +1453,7 @@ void Administrador::definirArchivoTree(FILE *archivo, char path[], int apActual,
     BloqueArchivo bloque = getBloqueArchivo(path,sb.s_block_start,apActual);
     fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
     char blocazo[65];
+
     for (int i=0;i<64;i++) {
         blocazo[i]=bloque.b_content[i];
     }
@@ -1504,6 +1507,7 @@ BloqueArchivo Administrador::getBloqueArchivo(char path[], int inicio, int pos){
     if(archivo){
         fseek(archivo,inicio+pos*sizeof (BloqueArchivo),SEEK_SET);
         fread(&b,sizeof (BloqueArchivo),1,archivo);
+        fclose(archivo);
     }
     return b;
 }
@@ -1921,7 +1925,9 @@ void Administrador::insertarBloqueArchivo(SuperBloque sb,int posBitmap ,iNodo in
 bool Administrador::insertarBloqueArchivoApuntador(SuperBloque sb,int posInodo, int nEstructuras, char *path, int posApuntador, int tipoIndirecto,BloqueArchivo bloque_archivo){
     BloqueApuntador apuntador_actual = getBloqueApuntador(path,sb.s_block_start,posApuntador);
     iNodo inodo_archivo = getInodo(path,sb.s_inode_start,posInodo);
-
+    if(sb.s_first_blo==365){
+        cout<<"QUEPEDAL"<<endl;
+    }
     int i = 0;
     int libre_en_subdir = -1;
     int primer_bloque_libre = sb.s_first_blo;
@@ -1935,9 +1941,9 @@ bool Administrador::insertarBloqueArchivoApuntador(SuperBloque sb,int posInodo, 
         }
         if(libre_en_subdir!=-1){
             //Inseracion en indirectos
-            inodo_archivo.i_mtime=time(0);
+            //inodo_archivo.i_mtime=time(0);
             apuntador_actual.b_pointers[libre_en_subdir]=primer_bloque_libre;
-            escribirInodo(inodo_archivo,path,sb,posInodo);
+            //escribirInodo(inodo_archivo,path,sb,posInodo);
             escribirBloqueArchivo(bloque_archivo,path,sb,primer_bloque_libre);
             escribirPosBitmap(sb.s_bm_block_start,primer_bloque_libre,path,uno);
             sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
@@ -1966,6 +1972,7 @@ bool Administrador::insertarBloqueArchivoApuntador(SuperBloque sb,int posInodo, 
         }
         if(j!=-1){
             apuntador_actual.b_pointers[j]=sb.s_first_blo;
+            escribirBloqueApuntador(apuntador_actual,path,sb,posApuntador);
             crearBloqueApuntador(path,0,sb,tipoIndirecto-1,inodo_archivo.i_type,nEstructuras);
             SuperBloque sb1 = getSuperBloque(sesion->idPart);
             return  insertarBloqueArchivoApuntador(sb1,posInodo,nEstructuras,path,apuntador_actual.b_pointers[j],tipoIndirecto-1,bloque_archivo);
@@ -2376,7 +2383,7 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
             int primer_inodo_libre = sb.s_first_ino;
             int libre_en_subdir=-1;
             int libre_en_carpeta = -1;
-            archivo = fopen(path,"rb+");
+           // archivo = fopen(path,"rb+");
             for (i=0;i<12;i++) {
                 if(inodo_actual.i_block[i]!=-1){
                     BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
@@ -2437,9 +2444,9 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
 
                 iNodo inodo_nuevo = nuevoInodo(0,0);
                 BloqueCarpeta carpeta_nueva= carpetaInicial(carpeta_actual.b_content[0].b_inodo,primer_inodo_libre);
-                archivo = fopen(path,"rb+");
+                //archivo = fopen(path,"rb+");
                 BloqueCarpeta carpeta_escritura=getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[libre_en_subdir]);
-                fclose(archivo);
+                //fclose(archivo);
                 inodo_actual.i_mtime=time(0);
                 strcpy(carpeta_escritura.b_content[libre_en_carpeta].b_name,array_directorios[posActualCarpeta].data());
                 carpeta_escritura.b_content[libre_en_carpeta].b_inodo=primer_inodo_libre;
@@ -2644,7 +2651,9 @@ void Administrador::crearBloqueApuntador(char path[], int apActual, SuperBloque 
         nuevo.b_pointers[0]=sb.s_first_blo;
         escribirBloqueApuntador(nuevo,path,sb,actual);
         escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
-        crearBloqueApuntador(path,apActual,sb,tipoIndirecto-1,tipoBloque,nEstructuras);
+        SuperBloque sb1 = getSuperBloque(sesion->idPart);
+        crearBloqueApuntador(path,apActual,sb1,tipoIndirecto-1,tipoBloque,nEstructuras);
+
     }
 
 }
@@ -2796,6 +2805,7 @@ int Administrador::getFirstFreeBit(int inicio, int nEstruct, char path[]){
                 break;
             }
         }
+        fclose(archivo);
     }
     return posActual;
 }
@@ -2957,18 +2967,22 @@ bool Administrador::hayLogicas(char *path){
     MBR mbr;
     FILE* archivo;
     archivo=fopen(path,"rb+");
-    fseek(archivo,0,SEEK_SET);
-    fread(&mbr,sizeof (MBR),1,archivo);
-    int indiceEBR=-1;
-    indiceEBR= existeEBR(mbr);
-    if(indiceEBR!=-1){
-        int indice = mbr.particiones[indiceEBR].part_start;
-        fseek(archivo,indice,SEEK_SET);
-        fread(&ebr,sizeof (EBR),1,archivo);
-        if(ebr.part_size>0){
-            return true;
+    if(archivo){
+        fseek(archivo,0,SEEK_SET);
+        fread(&mbr,sizeof (MBR),1,archivo);
+        int indiceEBR=-1;
+        indiceEBR= existeEBR(mbr);
+        if(indiceEBR!=-1){
+            int indice = mbr.particiones[indiceEBR].part_start;
+            fseek(archivo,indice,SEEK_SET);
+            fread(&ebr,sizeof (EBR),1,archivo);
+            if(ebr.part_size>0){
+                return true;
+            }
         }
+        fclose(archivo);
     }
+
     return false;
 }
 
