@@ -8,6 +8,212 @@ Administrador::Administrador()
 
 }
 
+void Administrador::crearUsr(Funcion *funcion){
+    if(funcion->opciones[9]==1&&funcion->opciones[10]==1&&funcion->opciones[11]==1){
+        if(sesion->usrid!=-1){
+            NodoParticion *part = listaDisco->existeId(sesion->idPart);
+            if(part!=nullptr){
+                if(sesion->groupid==1){
+                    SuperBloque sb = getSuperBloque(sesion->idPart);
+                    string contenido = getContenidoArchivo(part->path,1,sb);
+                    vector <string> grupos = split(contenido,10);
+                    if(!existeGrupo(grupos,funcion->grp)){
+                        int idGrp = setIDGrupo(grupos);
+                        string grp;
+                        char grupoNuevo[100];
+                        grp = "\n"+to_string(idGrp)+",G,"+funcion->grp;
+                        contenido+=grp;
+                        insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sesion->tipo));
+                    }else{
+                        cerr<<"ERROR, AL CREAR GRUPO, YA EXISTE ESE GRUPO"<<endl;
+                    }
+                }else{
+                    cerr<<"ERROR, AL CREAR GRUPO, NO TIENE PERMISOS"<<endl;
+                }
+
+            } else {
+                cerr<<"ERROR, AL CREAR GRUPO, NO HAY PARTICION MONTADA CON ESE ID"<<endl;
+            }
+        }else{
+            cerr<<"ERROR, ERROR AL CREAR GRUPO, NO HA INICIADO SESION"<<endl;
+        }
+
+    }else{
+        cerr<<"ERROR, AL CREAR GRUPO, FALTAN PARAMETROS"<<endl;
+    }
+}
+
+void Administrador::crearGrupo(Funcion *funcion){
+    if(funcion->opciones[6]==1){
+        if(sesion->usrid!=-1){
+            NodoParticion *part = listaDisco->existeId(sesion->idPart);
+            if(part!=nullptr){
+                if(sesion->groupid==1){
+                    SuperBloque sb = getSuperBloque(sesion->idPart);
+                    string contenido = getContenidoArchivo(part->path,1,sb);
+                    vector <string> grupos = split(contenido,10);
+                    if(!existeGrupo(grupos,funcion->nombre)){
+                        int idGrp = setIDGrupo(grupos);
+                        string grp;
+                        grp = "\n"+to_string(idGrp)+",G,"+funcion->grp;
+                        contenido+=grp;
+                        insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sesion->tipo));
+                    }else{
+                        cerr<<"ERROR, AL CREAR GRUPO, YA EXISTE ESE GRUPO"<<endl;
+                    }
+                }else{
+                    cerr<<"ERROR, AL CREAR GRUPO, NO TIENE PERMISOS"<<endl;
+                }
+
+            } else {
+                cerr<<"ERROR, AL CREAR GRUPO, NO HAY PARTICION MONTADA CON ESE ID"<<endl;
+            }
+        }else{
+            cerr<<"ERROR, ERROR AL CREAR GRUPO, NO HA INICIADO SESION"<<endl;
+        }
+
+    }else{
+        cerr<<"ERROR, AL CREAR GRUPO, FALTAN PARAMETROS"<<endl;
+    }
+}
+
+bool Administrador::existeGrupo(vector<string> grupos, string grupo){
+    return false;//CHECK
+}
+
+bool Administrador::existeUsuario(vector<string> usuarios, string usuario){
+    return false;//CHECK
+}
+
+int Administrador::setIDGrupo(vector<string> grupos){
+    return 2;//CHECK
+}
+int Administrador::setIDUsuario(vector<string> usuarios){
+    return 2;//CHECK
+}
+
+void Administrador::insertarUsers(string contenido, SuperBloque sb, char *path,int nEstructuras){
+
+    iNodo inodo_users = getInodo(path,sb.s_inode_start,1);
+    int tamano = contenido.size();
+    int numero_bloques = getNumeroBloques(tamano);
+    vector<BloqueArchivo> bloques;
+    int fin_contenido=10;
+    if(contenido.size()>10){
+        fin_contenido=tamano;
+    }
+    int i;
+    int actual= tamano;
+    int contador_contenido=0;
+    for (i=0;i<numero_bloques;i++) {
+        BloqueArchivo nuevo;
+        for (int j=0;j<64;j++) {
+            if(actual>0){
+                if(fin_contenido<=contador_contenido)
+                    contador_contenido=0;
+                nuevo.b_content[j]=contenido[contador_contenido];
+                contador_contenido++;
+                actual--;
+            }else{
+                if(j<64 )
+                    nuevo.b_content[j]='\0';
+                break;
+            }
+        }
+        bloques.push_back(nuevo);
+    }
+    inodo_users.i_size = tamano;
+    for (i=0;i<12;i++) {
+        if(inodo_users.i_block[i]!=-1){
+            escribirBloqueArchivo(bloques[i],path,sb,inodo_users.i_block[i]);
+        }else{
+            inodo_users.i_block[i]=sb.s_first_blo;
+            escribirBloqueArchivo(bloques[i],path,sb,sb.s_first_blo);
+            escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,'1');
+            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+
+        }
+    }
+    escribirInodo(inodo_users,path,sb,1);
+    escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
+
+}
+
+std::vector<std::string>Administrador:: split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> tokens;
+   std::string token;
+   std::istringstream tokenStream(s);
+   while (std::getline(tokenStream, token, delimiter))
+   {
+      tokens.push_back(token);
+   }
+   return tokens;
+}
+
+string Administrador::getContenidoArchivo(char *path, int apArchivo, SuperBloque sb){
+    string retorno = "";
+    int i;
+    iNodo inodo_archivo = getInodo(path,sb.s_inode_start,apArchivo);
+    int tamano = inodo_archivo.i_size;
+    for (i=0;i<12;i++) {
+        if(inodo_archivo.i_block[i]!=-1){
+            BloqueArchivo b_archivo = getBloqueArchivo(path,sb.s_block_start,inodo_archivo.i_block[i]);
+            for (int j=0;j<64;j++) {
+                if(tamano>0){
+                    retorno+=b_archivo.b_content[j];
+                    tamano--;
+                }else{
+                    break;
+                }
+            }
+        }
+    }
+    for (i=12;i<15;i++) {
+        if(inodo_archivo.i_block[i]!=-1){
+            retorno += getContenidoArchivoIndirecto(path,inodo_archivo.i_block[i],sb,tamano,i-11);
+        }
+    }
+    return  retorno;
+
+}
+
+string Administrador::getContenidoArchivoIndirecto(char *path, int apBloque, SuperBloque sb, int tamano, int tipoIndirecto){
+    string retorno="";
+    int i;
+    BloqueApuntador bloque_apuntador = getBloqueApuntador(path,sb.s_block_start,apBloque);
+    if(tipoIndirecto==1){
+        for (i=0;i<16;i++) {
+            if(bloque_apuntador.b_pointers[i]!=-1){
+                BloqueArchivo b_archivo = getBloqueArchivo(path,sb.s_block_start,bloque_apuntador.b_pointers[i]);
+                for (int j=0;j<64;j++) {
+                    if(tamano>0){
+                        retorno+=b_archivo.b_content[j];
+                        tamano--;
+                    }else{
+                        break;
+                    }
+                }
+            }
+        }
+    }else{
+        for (i=0;i<16;i++) {
+            if(bloque_apuntador.b_pointers[i]=!-1){
+
+                retorno+=getContenidoArchivoIndirecto(path,bloque_apuntador.b_pointers[i],sb,tamano,tipoIndirecto-1);
+
+            }
+        }
+    }
+    return retorno;
+}
+
+
+
+
+
+
+
 int Administrador::numeroEstructuras(int tamanoPart, int tipo){
     double n;
     if(tipo==3){
@@ -223,7 +429,7 @@ void Administrador::formatear(Funcion *funcion){
 
                     BloqueArchivo b_usr;
 
-                    strcpy(b_usr.b_content,"1,G,root\n1,U,root,root,201504002");
+                    strcpy(b_usr.b_content,"1,G,root\n1,U,root,root,123");
                     int cont = 0;
                     while (b_usr.b_content[cont]!=NULL) {
                         cont++;
@@ -363,9 +569,6 @@ iNodo Administrador::getInodoUsuarios(Sesion sesion){
     return  inodo;
 }
 
-
-
-
 void Administrador::escribirJournal(Journal journal, char *path, SuperBloque sb, int nEstructuras, int inicio){
     FILE *archivo = fopen(path,"rb+");
     if(archivo){
@@ -388,8 +591,6 @@ int Administrador::getPosJournal(int inicio, int nEstruct, FILE *archivo){
     }
     return posActual-sizeof (Journal);
 }
-
-
 
 void Administrador::crearDisco(Funcion *funcion){
     funcion->getName();

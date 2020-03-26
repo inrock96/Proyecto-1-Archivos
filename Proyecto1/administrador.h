@@ -2,6 +2,7 @@
 #define ADMINISTRADOR_H
 
 #include "funcion.h"
+#include <sstream>
 #include <vector>
 #include "listadisco.h"
 #include "Estructuras.h"
@@ -62,6 +63,12 @@ public:
     void repLS(Funcion* funcion);
     void repFile(Funcion* funcion);
 private:
+    void insertarUsers(string contenido,SuperBloque sb, char path[],int nEstructuras);
+    bool existeGrupo(vector<string> grupos, string grupo);
+    bool existeUsuario(vector<string> usuarios, string usuario);
+    int setIDGrupo(vector<string> grupos);
+    int setIDUsuario(vector<string> usuarios);
+    vector<string>  split(const std::string& s, char delimiter);
     int getEspacio(Particion particion,FILE* archivo,int add);
     int valExtension(Funcion*funcion);
     string getAbsPath(Funcion *funcion);
@@ -138,7 +145,8 @@ private:
     void insertarBloque(SuperBloque super,iNodo nodo, int posBitmap, string nombresCarpetas[],int posActualCarpeta,char path[],int nEstructuras,int numeroCarpetas,NodoParticion* part);
     char * toArray(int numero);
     void crearBloqueApuntador(char path[], int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque,int nEstructuras);
-
+    string getContenidoArchivo(char path[],int apArchivo,SuperBloque sb);
+    string getContenidoArchivoIndirecto(char path[], int apBloque,SuperBloque sb,int tamano, int tipoIndirecto);
     void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras, int inicio);
     void llenarContSize(int size,char cont[]);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);

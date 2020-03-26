@@ -384,7 +384,7 @@ void Interprete::ejecutar(string entrada){
                   admin->  desmontarDisco(funcion);     //Done
                     break;
                 case 5:
-                    admin->reportes(funcion);
+                    admin->reportes(funcion);       //faltan unos
                     break;
                 case 6:
                     ejecutarComando(funcion);     //Done
@@ -396,16 +396,16 @@ void Interprete::ejecutar(string entrada){
                     admin->login(funcion);        //Mínimo
                     break;
                 case 9:
-                    admin->logout();       //Mínimo
+                    admin->logout();       //Done
                     break;
                 case 10:
-                    //admin->crearGrupo(funcion);   //Mínimo
+                    admin->crearGrupo(funcion);   //Mínimo
                     break;
                 case 11:
                     //admin->eliminarGrupo(funcion);
                     break;
                 case 12:
-                    //admin->crearUsr(funcion);     //Mínimo
+                    admin->crearUsr(funcion);     //Mínimo
                     break;
                 case 13:
                     //admin->eliminarUsr(funcion);
@@ -414,7 +414,7 @@ void Interprete::ejecutar(string entrada){
                     //admin->chmod(funcion);
                     break;
                 case 15:
-                    admin->crearArchivo(funcion); //Mínimo
+                    admin->crearArchivo(funcion); //Done
                     break;
                 case 16:
                     //admin->catArchivo(funcion);//Mínimo
@@ -429,7 +429,7 @@ void Interprete::ejecutar(string entrada){
                     //admin->renombrarArchivo(funcion);
                     break;
                 case 20:
-                    admin->crearDirectorio(funcion);//Mínimo
+                    admin->crearDirectorio(funcion);//Done
                     break;
                 case 21:
                     //admin->copiarDir(funcion);
