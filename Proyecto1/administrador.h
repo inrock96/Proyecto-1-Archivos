@@ -19,6 +19,7 @@ public:
     ListaDisco *listaDisco;
     char cont[1000000];
     char pathTrampa[200];
+    string pathTrampa2;
     Sesion *sesion;
     Administrador();
     void crearDisco(Funcion *funcion);
@@ -63,11 +64,18 @@ public:
     void repLS(Funcion* funcion);
     void repFile(Funcion* funcion);
 private:
+    void lossBMBlock(SuperBloque sb, int numeroEstructuras,char path[]);
+    void lossBMInode(SuperBloque sb, int numeroEstructuras,char path[]);
+    void lossInode(SuperBloque sb, int numeroEstructuras,char path[]);
+    void lossBlock(SuperBloque sb, int numeroEstructuras,char path[]);
+    int getGroupId(char path[],SuperBloque sb,string grupo);
+    vector <string> getUsuario(char path[],SuperBloque sb, string nombreusuario);
+    string getGrupoUsers(char path[],SuperBloque sb,int grupo);
     void insertarUsers(string contenido,SuperBloque sb, char path[],int nEstructuras);
     bool existeGrupo(vector<string> grupos, string grupo);
     bool existeUsuario(vector<string> usuarios, string usuario);
     int setIDGrupo(vector<string> grupos);
-    int setIDUsuario(vector<string> usuarios);
+    int setIDUsuario(vector<string> usuarios,string grupo);
     vector<string>  split(const std::string& s, char delimiter);
     int getEspacio(Particion particion,FILE* archivo,int add);
     int valExtension(Funcion*funcion);

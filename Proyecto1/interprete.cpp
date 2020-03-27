@@ -393,19 +393,19 @@ void Interprete::ejecutar(string entrada){
                     admin->formatear(funcion);     //Done
                     break;
                 case 8:
-                    admin->login(funcion);        //Mínimo
+                    admin->login(funcion);        //DONE
                     break;
                 case 9:
                     admin->logout();       //Done
                     break;
                 case 10:
-                    admin->crearGrupo(funcion);   //Mínimo
+                    admin->crearGrupo(funcion);   //DONE
                     break;
                 case 11:
                     //admin->eliminarGrupo(funcion);
                     break;
                 case 12:
-                    admin->crearUsr(funcion);     //Mínimo
+                    admin->crearUsr(funcion);     //DONE
                     break;
                 case 13:
                     //admin->eliminarUsr(funcion);
@@ -426,7 +426,7 @@ void Interprete::ejecutar(string entrada){
                     //admin->editarArchivo(funcion);
                     break;
                 case 19:
-                    //admin->renombrarArchivo(funcion);
+                    //admin->renombrarArchivo(funcion);//MAYBE
                     break;
                 case 20:
                     admin->crearDirectorio(funcion);//Done
@@ -435,16 +435,16 @@ void Interprete::ejecutar(string entrada){
                     //admin->copiarDir(funcion);
                     break;
                 case 22:
-                    //admin->moverDir(funcion);
+                    //admin->moverDir(funcion); //MAYBE
                     break;
                 case 23:
                     //admin->encontrarDir(funcion);
                     break;
                 case 24:
-                  //  admin->cambiarDueno(funcion);
+                  //  admin->cambiarDueno(funcion); //MAYBE
                     break;
                 case 25:
-                  //  admin->cambiarGrp(funcion);
+                  //  admin->cambiarGrp(funcion);   //MAYBE
                     break;
                 case 26:
                     break;

@@ -16,14 +16,16 @@ void Administrador::crearUsr(Funcion *funcion){
                 if(sesion->groupid==1){
                     SuperBloque sb = getSuperBloque(sesion->idPart);
                     string contenido = getContenidoArchivo(part->path,1,sb);
-                    vector <string> grupos = split(contenido,10);
-                    if(!existeGrupo(grupos,funcion->grp)){
-                        int idGrp = setIDGrupo(grupos);
-                        string grp;
-                        char grupoNuevo[100];
-                        grp = "\n"+to_string(idGrp)+",G,"+funcion->grp;
-                        contenido+=grp;
-                        insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sesion->tipo));
+                    vector <string> usuarios = split(contenido,10);
+                    if(existeGrupo(usuarios,funcion->grp)){
+                        if(!existeUsuario(usuarios,funcion->usr)){
+                            int idUsr = setIDUsuario(usuarios,funcion->grp);
+                            string grp;
+                            char grupoNuevo[100];
+                            grp = "\n"+to_string(idUsr)+",U,"+funcion->grp+","+funcion->usr+","+funcion->pwd;
+                            contenido+=grp;
+                            insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+                        }
                     }else{
                         cerr<<"ERROR, AL CREAR GRUPO, YA EXISTE ESE GRUPO"<<endl;
                     }
@@ -54,10 +56,9 @@ void Administrador::crearGrupo(Funcion *funcion){
                     vector <string> grupos = split(contenido,10);
                     if(!existeGrupo(grupos,funcion->nombre)){
                         int idGrp = setIDGrupo(grupos);
-                        string grp;
-                        grp = "\n"+to_string(idGrp)+",G,"+funcion->grp;
-                        contenido+=grp;
-                        insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sesion->tipo));
+                        string grp = "\n"+to_string(idGrp)+",G,"+funcion->nombre;
+                        contenido=contenido+grp;
+                        insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sb.s_filesystem_type));
                     }else{
                         cerr<<"ERROR, AL CREAR GRUPO, YA EXISTE ESE GRUPO"<<endl;
                     }
@@ -78,18 +79,100 @@ void Administrador::crearGrupo(Funcion *funcion){
 }
 
 bool Administrador::existeGrupo(vector<string> grupos, string grupo){
-    return false;//CHECK
+
+    int i;
+    for (i=0;i<grupos.size();i++) {
+        vector<string> prueba= split(grupos[i],',');
+        if(prueba[1].compare("G")==0){
+            if(prueba[2].compare(grupo)==0){
+                return true;
+            }
+        }
+    }
+
+    return false;//
+
 }
 
 bool Administrador::existeUsuario(vector<string> usuarios, string usuario){
-    return false;//CHECK
+    int i;
+    for (i=0;i<usuarios.size();i++) {
+        vector<string> prueba= split(usuarios[i],',');
+        if(prueba[0].compare("0")!=0){
+            if(prueba[1].compare("U")==0){
+                if(prueba[3].compare(usuario)==0){
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;//
+
+}
+
+vector<string> Administrador::getUsuario(char *path, SuperBloque sb, string nombreusuario){
+
+    string contenido = getContenidoArchivo(path,1,sb);
+    vector <string> usuarios = split(contenido,10);
+    vector <string> nosirve;
+    nosirve.push_back("");
+    int i;
+    for (i=0;i<usuarios.size();i++) {
+        vector<string> usuario = split(usuarios[i],',');
+        if(usuario.size()>0){
+            if(usuario[0].compare("0")!=0&&usuario[1].compare("U")==0){
+                if(usuario[3].compare(nombreusuario)==0){
+                    return usuario;
+                }
+            }
+        }
+    }
+    return nosirve;
+}
+
+int Administrador::getGroupId(char *path, SuperBloque sb, string grupo){
+    string contenido = getContenidoArchivo(path,1,sb);
+    vector<string> grupos = split(contenido,10);
+    int i;
+    for (i=0;i<grupos.size();i++) {
+        vector<string> actual = split(grupos[i],',');
+        if(actual[0].compare("0")!=0&&actual[1].compare("G")==0){
+            if(actual[2].compare(grupo)==0){
+                return stoi(actual[0]);
+            }
+        }
+    }
+    return -1;
 }
 
 int Administrador::setIDGrupo(vector<string> grupos){
-    return 2;//CHECK
+    int i;
+    int retorno= -1;
+    for (i=0;i<grupos.size();i++) {
+        vector<string> prueba= split(grupos[i],',');
+        if(prueba[1].compare("G")==0){
+            if(prueba[0].compare("0")!=0){
+                retorno = stoi(prueba[0]);
+            }
+        }
+    }
+
+    return retorno+1;//
 }
-int Administrador::setIDUsuario(vector<string> usuarios){
-    return 2;//CHECK
+int Administrador::setIDUsuario(vector<string> usuarios,string grupo){
+    int i;
+    int retorno= 0;
+    for (i=0;i<usuarios.size();i++) {
+        vector<string> prueba= split(usuarios[i],',');
+        if(prueba[1].compare("U")==0){
+            if(prueba[0].compare("0")!=0){
+                    retorno = stoi(prueba[0]);
+            }
+        }
+    }
+
+    return retorno+1;//
 }
 
 void Administrador::insertarUsers(string contenido, SuperBloque sb, char *path,int nEstructuras){
@@ -122,17 +205,25 @@ void Administrador::insertarUsers(string contenido, SuperBloque sb, char *path,i
         }
         bloques.push_back(nuevo);
     }
+    char uno='1';
     inodo_users.i_size = tamano;
+    int contador = bloques.size();
     for (i=0;i<12;i++) {
-        if(inodo_users.i_block[i]!=-1){
-            escribirBloqueArchivo(bloques[i],path,sb,inodo_users.i_block[i]);
-        }else{
-            inodo_users.i_block[i]=sb.s_first_blo;
-            escribirBloqueArchivo(bloques[i],path,sb,sb.s_first_blo);
-            escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,'1');
-            sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+        if(contador>0){
+            if(inodo_users.i_block[i]!=-1){
+                escribirBloqueArchivo(bloques[i],path,sb,inodo_users.i_block[i]);
+                contador--;
+            }else{
+                inodo_users.i_block[i]=sb.s_first_blo;
+                escribirBloqueArchivo(bloques[i],path,sb,sb.s_first_blo);
+                escribirPosBitmap(sb.s_bm_block_start,sb.s_first_blo,path,uno);
 
+                sb.s_first_blo = getFirstFreeBit(sb.s_bm_block_start,nEstructuras*3,path);
+
+                contador--;
+            }
         }
+
     }
     escribirInodo(inodo_users,path,sb,1);
     escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
@@ -416,7 +507,7 @@ void Administrador::formatear(Funcion *funcion){
                     iNodo i_usr;
                     i_usr.i_gid=1;
                     i_usr.i_uid=1;
-                    i_usr.i_size=32;
+                    i_usr.i_size=26;
                     i_usr.i_type=1;
                     i_usr.i_atime=i_usr.i_ctime=i_usr.i_mtime=time(0);
                     i_usr.i_perm_lectura=0;
@@ -500,18 +591,25 @@ void Administrador::login(Funcion *funcion){
         Usuario*usr = getUsuario(funcion->usr,part);
         if(sesion->usrid==-1){
             usr = getUsuario(funcion->usr,part);
-            if(part!=nullptr){
-                if(usr->contrasena.compare(funcion->pwd)==0){
-                    sesion->iniciarSesion(usr->nombre,usr->contrasena,funcion->id[0]);
-                    sesion->usrid = usr->usuario;
-                    sesion->groupid = usr->grupo;
-                    cout<<"         Sesion iniciada con exito"<<endl;
+            SuperBloque sb = getSuperBloque(part->nombre);
+            vector<string> usuarios = getUsuario(part->path,sb,funcion->usr);
+            if(usuarios.size()==5){
+                if(part!=nullptr){
+                    if(usuarios[4].compare(funcion->pwd)==0){
+                        sesion->iniciarSesion(usuarios[3],usuarios[4],funcion->id[0]);
+                        sesion->usrid = stoi(usuarios[0]);
+                        sesion->groupid = getGroupId(part->path,sb,usuarios[2]);
+                        cout<<"         Sesion iniciada con exito"<<endl;
+                    }else{
+                        cout<<"ERROR AL INICIAR SESION, CONTRA O USR INCORRECTO"<<endl;
+                    }
                 }else{
-                    cout<<"ERROR AL INICIAR SESION, CONTRA O USR INCORRECTO"<<endl;
+                    cout<<"ERROR AL INICIAR SESION, PARTICION NO MONTADA"<<endl;
                 }
             }else{
-                cout<<"ERROR AL INICIAR SESION, PARTICION NO MONTADA"<<endl;
+                cerr<<"ERROR AL INICIAR SESION, NO EXISTE ESE USUARIO"<<endl;
             }
+
         }else{
             cout<<"ERROR AL INICIAR SESION, YA INICIO SESION"<<endl;
         }
@@ -542,7 +640,7 @@ void Administrador::escribirBitMap(int inicio,int n,FILE* archivo){
 
 void Administrador::logout(){
     if(sesion->groupid<1)
-            cout<<"No hay sesión iniciada"<<endl<<endl;
+            cerr<<"ERROR, No hay sesión iniciada"<<endl<<endl;
         else
         {
             sesion->cerrarSesion();
@@ -848,9 +946,9 @@ void Administrador::crearParticion(Funcion *funcion){
                         if(mbr.disk_fit=='f')
                             byteInicio = getFFByte(archivo,tamanoPart);
                         else if(mbr.disk_fit=='b'){
-                            byteInicio = getBFByte(archivo,tamanoPart);/*CHECK getBFByte*/
+                            byteInicio = getBFByte(archivo,tamanoPart);/* getBFByte*/
                         }else{
-                            byteInicio = getWFByte(archivo,tamanoPart);/*CHECK getWFByte*/
+                            byteInicio = getWFByte(archivo,tamanoPart);/* getWFByte*/
                         }
                         if(posicion!=-1){
                             if(byteInicio!=-1&&hayExtendida){
@@ -1064,7 +1162,7 @@ void Administrador::eliminarParticion(Funcion *funcion){
             }
 
         }else{
-            //Buscar en las lógicas CHECK
+            //Buscar en las lógicas
             cout<<"No hay partición con ese nombre"<<endl;
         }
     }else{
@@ -1078,7 +1176,7 @@ void Administrador::eliminarParticion(Funcion *funcion){
             }
         }
         if(logica){
-            //CHECK buscamos para deshabilitar la lógica
+            // buscamos para deshabilitar la lógica
         }
         escribirMBR(archivo,mbr);
         escribirMBR(fRaid,mbr);
@@ -1142,7 +1240,7 @@ void Administrador::addParticion(Funcion *funcion){
             }
 
         }else{
-            //Buscar en las lógicas CHECK
+            //Buscar en las lógicas
             cout<<"No hay partición con ese nombre"<<endl;
         }
     }else{
@@ -1543,17 +1641,18 @@ void Administrador::repTree(Funcion *funcion){
     FILE* archivo = fopen("/home/mia/Reportes/arbol.dot","w");
 
     int n = numeroEstructuras(part->tamano,sesion->tipo);
-    Bitmap bm_inodo[n];
-    leerBMInodo(sb.s_bm_inode_start,n,part->path,bm_inodo);
     FILE* archivoTree = fopen(part->path,"rb+");
+    char prueba;
     if(archivo!=NULL&&archivoTree!=NULL){
         fseek(archivoTree,sb.s_inode_start,SEEK_SET);
         fprintf(archivo,"digraph g{\nnode [shape=record];\n");
         fprintf(archivo,"node [style=filled];");
         fprintf(archivo,"edge [color=\"#A30015\"];\n");
         fprintf(archivo,"rankdir=LR;\n");
+        fread(&prueba,1,1,archivoTree);
         fclose(archivoTree);
-        definirInodoTree(archivo,part->path,0,sb);
+        if(prueba!=0)
+            definirInodoTree(archivo,part->path,0,sb);
 
         fprintf(archivo, "}\n");
         fclose(archivo);
@@ -1937,6 +2036,8 @@ void Administrador::insertarFile(SuperBloque sb,
         if(sesion->groupid==1){
             tiene_permiso = true;
         }
+        if(inodo_actual.i_perm_lectura==0)
+            tiene_permiso=true;
         if(!tiene_permiso){
             tiene_permiso = validarPermisoEscritura(inodo_actual);
         }
@@ -2219,7 +2320,7 @@ bool Administrador::insertarFileApuntador(SuperBloque sb, int posBitmap, string 
                 Journal journal_carpeta;
                 journal_carpeta.log_tipo=1;
                 journal_carpeta.log_tipo_operacion=0;
-                strcmp(journal_carpeta.log_path,path); //CHECK
+                strcmp(journal_carpeta.log_path,pathTrampa2.data()); //CHECK
                 journal_carpeta.contenido=1;
                 journal_carpeta.log_propietario=sesion->usrid;
                 journal_carpeta.log_grupo = sesion->groupid;
@@ -2577,6 +2678,8 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
         if(sesion->groupid==1){
             tiene_permiso = true;
         }
+        if(inodo_actual.i_perm_lectura==0)
+            tiene_permiso=true;
         if(!tiene_permiso){
             tiene_permiso = validarPermisoEscritura(inodo_actual);
         }
@@ -2609,7 +2712,7 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
                     Journal journal_carpeta;
                     journal_carpeta.log_tipo=0;
                     journal_carpeta.log_tipo_operacion=0;
-                    strcmp(journal_carpeta.log_path,path); //CHECK
+                    strcmp(journal_carpeta.log_path,pathTrampa2.data()); //CHECK
                     journal_carpeta.contenido=0;
                     journal_carpeta.log_propietario=sesion->usrid;
                     journal_carpeta.log_grupo = sesion->groupid;
@@ -2666,7 +2769,7 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
 
                 escribirSuperBloque(path,sb,part->byteInicio);
             }else{
-                //Inserción en indirectos;CHECK
+                //Inserción en indirectos;
                 for (i=12;i<15;i++) {
                     if(inodo_actual.i_block[i]!=-1){
                         if(insertarCarpetaApuntador(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual.i_block[i],i-11)==true){
@@ -2727,7 +2830,7 @@ bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vect
                 Journal journal_carpeta;
                 journal_carpeta.log_tipo=0;
                 journal_carpeta.log_tipo_operacion=0;
-                strcmp(journal_carpeta.log_path,path); //CHECK
+                strcmp(journal_carpeta.log_path,pathTrampa2.data()); //CHECK
                 journal_carpeta.contenido=0;
                 journal_carpeta.log_propietario=sesion->usrid;
                 journal_carpeta.log_grupo = sesion->groupid;
@@ -2922,7 +3025,40 @@ void Administrador::escribirInodo(iNodo inodo,char* path, SuperBloque sb,int pos
     }
 }
 bool Administrador::validarPermisoEscritura(iNodo inodo_actual){
-    return true;
+    if(inodo_actual.i_uid==sesion->usrid){
+        //user
+        if(inodo_actual.i_perm_lectura==7
+                ||inodo_actual.i_perm_lectura==6
+                ||inodo_actual.i_perm_lectura==3
+                ||inodo_actual.i_perm_lectura==2){
+            return true;
+
+        }else{
+            return  false;
+        }
+    }else if(inodo_actual.i_gid==sesion->groupid){
+        //grupo
+        if(inodo_actual.i_perm_escritura==7
+                ||inodo_actual.i_perm_escritura==6
+                ||inodo_actual.i_perm_escritura==3
+                ||inodo_actual.i_perm_escritura==2){
+            return true;
+
+        }else{
+            return  false;
+        }
+    }else{
+        //otros
+        if(inodo_actual.i_perm_ejecucion==7
+                ||inodo_actual.i_perm_ejecucion==6
+                ||inodo_actual.i_perm_ejecucion==3
+                ||inodo_actual.i_perm_ejecucion==2){
+            return true;
+
+        }else{
+            return  false;
+        }
+    }
 }
 BloqueCarpeta Administrador::carpetaInicial(int padre, int actual){
     BloqueCarpeta carpeta;
@@ -2951,11 +3087,89 @@ iNodo Administrador::nuevoInodo(int tamano,char tipo){
 
 }
 void Administrador::recuperar(Funcion *funcion){
+    if(funcion->opciones[8]){
+        NodoParticion *part = listaDisco->existeId(funcion->id[0]);
+        SuperBloque sb = getSuperBloque(part->nombre);
+        if(sb.s_filesystem_type==3){
 
+        }else{
+            cerr<<"ERROR RECOVERY, ESTA PARTICION NO ES EXT3"<<endl;
+        }
+    }else{
+        cerr<<"ERROR RECOVERY, NO HAY PAARAMETROS"<<endl;
+    }
 }
 
 void Administrador::perdida(Funcion *funcion){
+    if(funcion->opciones[8]){
+        NodoParticion *part = listaDisco->existeId(funcion->id[0]);
+        SuperBloque sb = getSuperBloque(part->nombre);
+        if(sb.s_filesystem_type==3){
+            lossBMInode(sb,numeroEstructuras(part->tamano,sb.s_filesystem_type),part->path);
+            lossBMBlock(sb,numeroEstructuras(part->tamano,sb.s_filesystem_type)*3,part->path);
+            lossBlock(sb,numeroEstructuras(part->tamano,sb.s_filesystem_type),part->path);
+            lossInode(sb,numeroEstructuras(part->tamano,sb.s_filesystem_type)*3,part->path);
+        }else{
+            cerr<<"ERROR LOSS, ESTA PARTICION NO ES EXT3"<<endl;
+        }
+    }else{
+        cerr<<"ERROR LOSS, NO HAY PAARAMETROS"<<endl;
+    }
+}
 
+void Administrador::lossBlock(SuperBloque sb, int numeroEstructuras, char *path){
+    FILE*archivo = fopen(path,"rb+");
+    char bloque[64];
+    for (int i = 0;i<64;i++) {
+        bloque[i]=0;
+    }
+    if(archivo){
+        fseek(archivo,sb.s_block_start,SEEK_SET);
+        for (int i =0;i<numeroEstructuras;i++) {
+            fwrite(&bloque,64,1,archivo);
+        }
+        fclose(archivo);
+    }
+}
+
+void Administrador::lossInode(SuperBloque sb, int numeroEstructuras, char *path){
+    FILE*archivo = fopen(path,"rb+");
+    char bloque[sizeof(iNodo)];
+    for (int i = 0;i<sizeof(iNodo);i++) {
+        bloque[i]=0;
+    }
+    if(archivo){
+        fseek(archivo,sb.s_inode_start,SEEK_SET);
+        for (int i =0;i<numeroEstructuras;i++) {
+            fwrite(&bloque,sizeof(iNodo),1,archivo);
+        }
+        fclose(archivo);
+    }
+}
+
+void Administrador::lossBMBlock(SuperBloque sb, int numeroEstructuras, char *path){
+    FILE*archivo = fopen(path,"rb+");
+    char bloque=0;
+
+    if(archivo){
+        fseek(archivo,sb.s_bm_block_start,SEEK_SET);
+        for (int i =0;i<numeroEstructuras;i++) {
+            fwrite(&bloque,1,1,archivo);
+        }
+        fclose(archivo);
+    }
+}
+void Administrador::lossBMInode(SuperBloque sb, int numeroEstructuras, char *path){
+    FILE*archivo = fopen(path,"rb+");
+    char bloque=0;
+
+    if(archivo){
+        fseek(archivo,sb.s_bm_inode_start,SEEK_SET);
+        for (int i =0;i<numeroEstructuras;i++) {
+            fwrite(&bloque,1,1,archivo);
+        }
+        fclose(archivo);
+    }
 }
 
 void Administrador::generarReporte(Funcion *funcion, string nombreRep){

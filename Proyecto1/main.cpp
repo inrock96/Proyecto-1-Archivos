@@ -24,6 +24,7 @@ bool menuPrincipal(){
     cout<<"201504002"<<endl<<endl;
     cout<<"Sistema manejador de Archivos"<<endl;
     cout<<endl<<"Ingrese un comando:>>"<<endl;
+
     scanf(" %[^\n]",comando);
     if(strcmp(comando,"exit")!=0){
         interprete->ejecutar(comando);
