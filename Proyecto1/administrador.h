@@ -64,6 +64,8 @@ public:
     void repLS(Funcion* funcion);
     void repFile(Funcion* funcion);
 private:
+    void ejecutarJournal(SuperBloque sb, char path[],Journal journal,char id[]);
+    string makePath(vector<string> carpetas, int numeroCarpetas);
     void lossBMBlock(SuperBloque sb, int numeroEstructuras,char path[]);
     void lossBMInode(SuperBloque sb, int numeroEstructuras,char path[]);
     void lossInode(SuperBloque sb, int numeroEstructuras,char path[]);
@@ -156,8 +158,11 @@ private:
     string getContenidoArchivo(char path[],int apArchivo,SuperBloque sb);
     string getContenidoArchivoIndirecto(char path[], int apBloque,SuperBloque sb,int tamano, int tipoIndirecto);
     void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras, int inicio);
+    Journal getJournal( int inicio,int pos,char path[]);
     void llenarContSize(int size,char cont[]);
+    int catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras,string nombreArchivo);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
+    void definirJournal(FILE* archivo, char path[],int apActual,SuperBloque sb,int inicio);
     void definirInodoTree(FILE* archivo, char path[],int apActual,SuperBloque sb);
 //    void definirDDTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
     void definirIndirectoTree(FILE* archivo, char path[],int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);

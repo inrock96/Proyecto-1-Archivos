@@ -79,7 +79,7 @@ void ListaDisco::eliminar(std::string nombre){
         NodoParticion* nodito = aux->particiones->cabeza;
         NodoParticion* anterior = nullptr;
         while (nodito) {
-            if(strcmp(nodito->nombre,nombre.c_str())==0){
+            if(strcmp(nodito->nombrePart,nombre.c_str())==0){
                 anterior->siguiente = nodito->siguiente;
                 break;
             }
@@ -98,8 +98,12 @@ NodoParticion* ListaDisco::existeId(std::string id){
             if(strcmp(partActual->nombre,id.c_str())==0){
                 return partActual;
             }
+            if(partActual==actual->particiones->cabeza){
+                actual->particiones->cabeza = partActual->siguiente;
+            }
             partActual = partActual->siguiente;
         }
+
         actual = actual->siguiente;
     }
     return nullptr;

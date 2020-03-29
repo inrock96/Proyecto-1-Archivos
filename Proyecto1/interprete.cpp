@@ -417,7 +417,7 @@ void Interprete::ejecutar(string entrada){
                     admin->crearArchivo(funcion); //Done
                     break;
                 case 16:
-                    //admin->catArchivo(funcion);//Mínimo
+                    admin->catArchivo(funcion);//Mínimo
                     break;
                 case 17:
                     //admin->eliminarArchivo(funcion);

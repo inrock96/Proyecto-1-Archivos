@@ -21,7 +21,17 @@ void Administrador::crearUsr(Funcion *funcion){
                         if(!existeUsuario(usuarios,funcion->usr)){
                             int idUsr = setIDUsuario(usuarios,funcion->grp);
                             string grp;
-                            char grupoNuevo[100];
+                            if(sb.s_filesystem_type==3){
+                                Journal journal;
+                                journal.log_tipo=1;
+                                journal.log_fecha = time(0);
+                                strcpy(journal.contenidousr,grp.data());
+                                journal.log_propietario=sesion->usrid;
+                                journal.log_tipo_operacion=3;
+                                strcpy(journal.log_path,"/usuarios.txt");
+                                strcpy(journal.log_nombre,"usuarios.txt");
+
+                            }
                             grp = "\n"+to_string(idUsr)+",U,"+funcion->grp+","+funcion->usr+","+funcion->pwd;
                             contenido+=grp;
                             insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sb.s_filesystem_type));
@@ -58,6 +68,17 @@ void Administrador::crearGrupo(Funcion *funcion){
                         int idGrp = setIDGrupo(grupos);
                         string grp = "\n"+to_string(idGrp)+",G,"+funcion->nombre;
                         contenido=contenido+grp;
+                        if(sb.s_filesystem_type==3){
+                            Journal journal;
+                            journal.log_tipo=1;
+                            journal.log_fecha = time(0);
+                            strcpy(journal.contenidousr,grp.data());
+                            journal.log_propietario=sesion->usrid;
+                            journal.log_tipo_operacion=2;
+                            strcpy(journal.log_path,"/usuarios.txt");
+                            strcpy(journal.log_nombre,"usuarios.txt");
+
+                        }
                         insertarUsers(contenido,sb,part->path,numeroEstructuras(part->tamano,sb.s_filesystem_type));
                     }else{
                         cerr<<"ERROR, AL CREAR GRUPO, YA EXISTE ESE GRUPO"<<endl;
@@ -426,8 +447,8 @@ void Administrador::formatear(Funcion *funcion){
                         journal.contenido = 1;
                         journal.log_propietario=-1;
                         journal.log_tipo_operacion=2;
-                        limpiarVar(journal.log_path,100);
-                        limpiarVar(journal.log_nombre,24);
+                        limpiarVar(journal.log_path,200);
+                        limpiarVar(journal.log_nombre,12);
                         for (i=0;i<nEstructuras;i++) {
                             fseek(archivo,prueba,SEEK_SET);
                             fwrite(&journal,sizeof (Journal),1,archivo);
@@ -531,11 +552,12 @@ void Administrador::formatear(Funcion *funcion){
                     Journal j_raiz;
                     Journal j_usuarios;
                     if(fs==3){
-
+                        strcpy(j_usuarios.contenidousr,"1,G,root\n1,U,root,root,123");
                         j_raiz.log_fecha = j_usuarios.log_fecha = time(0);
                         strcpy(j_raiz.log_path,"/");
                         strcpy(j_usuarios.log_path,"/");
                         strcpy(j_usuarios.log_nombre,"usuarios.txt");
+
                         strcpy(j_raiz.log_nombre,"root");
                         j_raiz.log_tipo_operacion=0;
                         j_usuarios.log_tipo_operacion=0;
@@ -1870,7 +1892,7 @@ void Administrador::reportes(Funcion *funcion){
             else
                 cout<<"No se encontró partición montada con ese id"<<endl;
         }else if(funcion->nombre.compare("journaling")==0){
-            //repJournaling(funcion);
+            repJournaling(funcion);
         }else if(funcion->nombre.compare("bm_inode")==0){
             repBMInode(funcion);
         }else if(funcion->nombre.compare("bm_block")==0){
@@ -1893,6 +1915,52 @@ void Administrador::reportes(Funcion *funcion){
         }
     }else {
         cout<<"Error al crear reporte, no están todos los campos necesarios"<<endl;
+    }
+}
+
+void Administrador::repJournaling(Funcion *funcion){
+    //PASOS
+    //Primero se posiciona en el ap journal
+    //Después se recorren las bitacoras hasta terminar las transacciones
+    FILE* archivo = fopen("/home/mia/Reportes/journal.dot","w");
+    char ide[5];
+    strcpy(ide,funcion->id[0].c_str());
+   SuperBloque sb= getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+
+        if(archivo!=nullptr){
+            fprintf(archivo,"Digraph g{ \n");
+
+            definirJournal(archivo,part->path,0,sb,part->byteInicio+sizeof (SuperBloque));
+
+            fprintf(archivo, "}\n");
+            fclose(archivo);
+            generarReporte(funcion,"journal");
+        }
+}
+
+void Administrador::definirJournal(FILE *archivo, char path[], int apActual, SuperBloque sb,int inicio){
+    Journal journal;
+    journal=getJournal(inicio,apActual,path);
+
+    if(journal.ugo>=0){
+        fprintf(archivo,"node%d[shape=none\nlabel = <\n"
+                   "<table border=\'0\' cellborder=\'1\' color=\'blue\' cellspacing=\'0\'>",apActual);
+        fprintf(archivo,"<tr><td>Journal</td></tr>\n");
+        fprintf(archivo,"<tr><td>Nombre</td><td>Valor</td></tr>\n");
+        fprintf(archivo,"<tr><td>Tipo operacion</td><td>%d</td></tr>\n",journal.log_tipo_operacion);
+        if(journal.log_tipo==0)
+            fprintf(archivo,"<tr><td>Tipo</td><td>%s</td></tr>\n","Carpeta");
+        else
+            fprintf(archivo,"<tr><td>Tipo</td><td>%s</td></tr>\n","Archivo");
+        fprintf(archivo,"<tr><td>Nombre</td><td>%s</td></tr>\n",journal.log_nombre);
+        if(journal.log_tipo==1)
+            fprintf(archivo,"<tr><td>Contenido</td><td>%s</td></tr>\n",journal.contenidousr);
+        char hora[128];
+        horaAString(hora,journal.log_fecha);
+        fprintf(archivo,"<tr><td>fecha</td><td>%s</td></tr>\n",hora);
+        fprintf(archivo, "</table>>\n];");
+        definirJournal(archivo,path,apActual+1,sb,inicio);
     }
 }
 
@@ -2069,7 +2137,7 @@ void Administrador::insertarFile(SuperBloque sb,
                     Journal journal_archivo;
                     journal_archivo.log_tipo=1;
                     journal_archivo.log_tipo_operacion=0;
-                    strcmp(journal_archivo.log_path,path); //funcion path
+                    strcpy(journal_archivo.log_path,makePath(array_directorios,numero_directorios).data()); //funcion path
                     if(tamano>0)
                         journal_archivo.contenido=1;
                     else
@@ -2619,26 +2687,6 @@ void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> a
         return;
     }
     int encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios.at(posActualCarpeta));
-//    int encontro_directorio=0;
-//    int i;
-//    for (i=0;i<12;i++) {
-//        if(inodo_actual.i_block[i]!=-1){
-//            //Si es diferente de 0 jalamos el bloque carpeta
-//            BloqueCarpeta carpeta;
-//            int indice = sb.s_block_start+inodo_actual.i_block[i]*sizeof (BloqueCarpeta);
-//            archivo = fopen(path,"rb+");
-//            fseek(archivo,indice,SEEK_SET);
-//            fread(&carpeta,sizeof (BloqueCarpeta),1,archivo);
-//            fclose(archivo);
-//            for (int j = 0;j<4;j++) {
-//                if(strcmp(carpeta.b_content[j].b_name,array_directorios[posActualCarpeta].data())==0){
-//                    //Si son iguales
-//                    encontro_directorio=1;
-//                    posBitmap = carpeta.b_content[j].b_inodo;
-//                }
-//            }
-//        }
-//    }
 
     if(encontro_directorio == -1){
         //Si no lo encontró, vemos si se crea en esta dirección
@@ -2663,6 +2711,13 @@ void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> a
     }
 }
 
+
+void Administrador::catArchivo(Funcion *funcion){
+
+}
+int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, string nombreArchivo){
+
+}
 void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, char *path, iNodo nodo){
     if(posBitmap>=0){
         char uno ='1';
@@ -2712,7 +2767,7 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
                     Journal journal_carpeta;
                     journal_carpeta.log_tipo=0;
                     journal_carpeta.log_tipo_operacion=0;
-                    strcmp(journal_carpeta.log_path,pathTrampa2.data()); //CHECK
+                    strcpy(journal_carpeta.log_path,makePath(array_directorios,posActualCarpeta).data()); //CHECK
                     journal_carpeta.contenido=0;
                     journal_carpeta.log_propietario=sesion->usrid;
                     journal_carpeta.log_grupo = sesion->groupid;
@@ -2795,6 +2850,17 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
 
 }
 
+string Administrador::makePath(vector<string> carpetas, int numeroCarpetas){
+    char path[200];
+    int i;
+    path[0]='/';
+    strcat(path,carpetas[0].data());
+    for (i=1;i<numeroCarpetas;i++) {
+        strcat(path,"/");
+        strcat(path,carpetas[i].data());
+    }
+    return path;
+}
 
 bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, char *path, int posApuntador, int tipoIndirecto){
     BloqueApuntador apuntador_actual = getBloqueApuntador(path,sb.s_block_start,posApuntador);
@@ -2830,7 +2896,8 @@ bool Administrador::insertarCarpetaApuntador(SuperBloque sb, int posBitmap, vect
                 Journal journal_carpeta;
                 journal_carpeta.log_tipo=0;
                 journal_carpeta.log_tipo_operacion=0;
-                strcmp(journal_carpeta.log_path,pathTrampa2.data()); //CHECK
+
+                strcmp(journal_carpeta.log_path,makePath(array_directorios,posActualCarpeta).data()); //CHECK
                 journal_carpeta.contenido=0;
                 journal_carpeta.log_propietario=sesion->usrid;
                 journal_carpeta.log_grupo = sesion->groupid;
@@ -3091,13 +3158,78 @@ void Administrador::recuperar(Funcion *funcion){
         NodoParticion *part = listaDisco->existeId(funcion->id[0]);
         SuperBloque sb = getSuperBloque(part->nombre);
         if(sb.s_filesystem_type==3){
-
+            Journal journal;
+            int nEstructuras = numeroEstructuras(part->tamano,3);
+            journal.ugo = -1;
+            int contador =0 ;
+            FILE* archivo = fopen(part->path,"rb+");
+            //escribirBitMap Inodo
+            escribirBitMap(sb.s_bm_inode_start,nEstructuras,archivo);
+            //Escribir bitmap DD
+            escribirBitMap(sb.s_bm_block_start,nEstructuras*3,archivo);
+            fclose(archivo);
+            sb.s_filesystem_type=4;
+            sb.s_first_blo=0;
+            sb.s_first_ino=0;
+            sb.s_free_block_count=nEstructuras*3;
+            sb.s_free_inode_count=nEstructuras;
+            escribirSuperBloque(part->path,sb,part->byteInicio);
+            do{
+                if(contador>nEstructuras){
+                    break;
+                }
+                journal = getJournal(part->byteInicio+sizeof (SuperBloque),contador,part->path);
+                ejecutarJournal(sb,part->path,journal,part->nombre);
+            }while(journal.ugo>=0);
         }else{
             cerr<<"ERROR RECOVERY, ESTA PARTICION NO ES EXT3"<<endl;
         }
     }else{
         cerr<<"ERROR RECOVERY, NO HAY PAARAMETROS"<<endl;
     }
+}
+
+void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal, char *id){
+    Funcion *funcion;
+    switch (journal.log_tipo_operacion) {
+    case 0:
+        //Crear
+        if(journal.log_tipo==0){
+            //Archivo   mkdir
+
+            crearDirectorio(funcion);
+
+        }else{
+            //Carpeta   mkfile
+            crearArchivo(funcion);
+
+        }
+        break;
+    case 1:
+        break;
+    case 2:
+        //MKgrp
+        crearGrupo(funcion);
+        break;
+    case 3:
+        //Mkusr
+        crearUsr(funcion);
+        break;
+    default:
+        break;
+    }
+}
+
+Journal Administrador::getJournal( int inicio, int pos,char path[]){
+    Journal journal;
+    journal.ugo=-1;
+    FILE* archivo = fopen(path,"rb+");
+    if(archivo){
+        fseek(archivo,inicio+pos*sizeof (Journal),SEEK_SET);
+        fread(&journal,sizeof (Journal),1,archivo);
+        fclose(archivo);
+    }
+    return journal;
 }
 
 void Administrador::perdida(Funcion *funcion){

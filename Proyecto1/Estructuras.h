@@ -79,8 +79,9 @@ typedef struct{
     char log_tipo;
     char log_tipo_operacion;
     time_t log_fecha;
-    char log_nombre[16];
-    char log_path[128];
+    char log_nombre[12];
+    char log_path[200];
+    char contenidousr[100];
     char contenido;
     int log_propietario;
     int log_grupo;
