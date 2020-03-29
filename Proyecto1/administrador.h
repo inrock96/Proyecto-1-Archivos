@@ -85,6 +85,9 @@ private:
     string getAbsPath(Funcion *funcion);
     int getBFByte(FILE* file, int tamano);
     int getFFByte(FILE* file, int tamano);
+    void crearRoot(SuperBloque sb, char path[]);
+    void crearUsers(SuperBloque sb, char path[]);
+
     int getWFByte(FILE* file, int tamano);
     MBR leerMBR(FILE* file);
     int getFFByteLogica(FILE* file, int tamano, int startExtendida, int finExtendida);

@@ -25,6 +25,8 @@ void Administrador::crearUsr(Funcion *funcion){
                             if(sb.s_filesystem_type==3){
                                 Journal journal;
                                 journal.log_tipo=1;
+                                journal.log_grupo=sesion->groupid;
+                                journal.log_propietario= sesion->usrid;
                                 journal.log_fecha = time(0);
                                 strcpy(journal.contenidousr,grp.data());
                                 journal.log_propietario=sesion->usrid;
@@ -72,6 +74,8 @@ void Administrador::crearGrupo(Funcion *funcion){
                         if(sb.s_filesystem_type==3){
                             Journal journal;
                             journal.log_tipo=1;
+                            journal.log_grupo=sesion->groupid;
+                            journal.log_propietario= sesion->usrid;
                             journal.log_fecha = time(0);
                             strcpy(journal.contenidousr,grp.data());
                             journal.log_propietario=sesion->usrid;
@@ -546,7 +550,7 @@ void Administrador::formatear(Funcion *funcion){
                     bcarpeta.b_content[0].b_inodo=0;
                     strcpy(bcarpeta.b_content[1].b_name,"..");
                     bcarpeta.b_content[1].b_inodo=0;
-                    strcpy(bcarpeta.b_content[2].b_name,"usuarios.txt");
+                    strcpy(bcarpeta.b_content[2].b_name,"users.txt");
                     bcarpeta.b_content[2].b_inodo=1;
                     //se crea el inodo para el archivo
                     iNodo i_usr;
@@ -580,12 +584,12 @@ void Administrador::formatear(Funcion *funcion){
                         j_raiz.log_fecha = j_usuarios.log_fecha = time(0);
                         strcpy(j_raiz.log_path,"/");
                         strcpy(j_usuarios.log_path,"/");
-                        strcpy(j_usuarios.log_nombre,"usuarios.txt");
+                        strcpy(j_usuarios.log_nombre,"users.txt");
                         j_raiz.ugo=0;
                         j_usuarios.ugo=0;
                         strcpy(j_raiz.log_nombre,"root");
-                        j_raiz.log_tipo_operacion=0;
-                        j_usuarios.log_tipo_operacion=0;
+                        j_raiz.log_tipo_operacion=10;
+                        j_usuarios.log_tipo_operacion=11;
                         j_raiz.log_tipo=0;
                         j_usuarios.log_tipo=1;
                         j_raiz.contenido = 1;
@@ -2156,15 +2160,16 @@ void Administrador::repFile(Funcion *funcion){
     int cont = 0;
     bool banderaPath = false;
     char pathDir[200];
-    strcpy(pathDir,funcion->file[0].data());
+    strcpy(pathDir,funcion->ruta.data());
     int numero_directorios = numeroDirectorios(pathDir);
-    while(pathDir[cont]!=NULL&&cont<funcion->file[0].size()+1){
+    while(pathDir[cont]!=NULL&&cont<funcion->ruta.size()+1){
         if(pathDir[cont]=='/')
         {
             cont++;
             string tokenActual = "";
             while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
-                tokenActual+=pathDir[cont];
+                if(pathDir[cont]!=10&&pathDir[cont]!=13)
+                    tokenActual+=pathDir[cont];
                 cont++;
             }
             array_directorios.push_back(tokenActual);
@@ -2175,10 +2180,12 @@ void Administrador::repFile(Funcion *funcion){
             break;
         }
     }
-    int posFile = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+
+    int posFile = -1;
+    posFile = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
     if(posFile!=-1){
         char path1[200];
-       strcpy(path1,funcion->path.data());
+        strcpy(path1,funcion->path.data());
         ofstream f(funcion->path);
         if(f.is_open()){
             f<<getContenidoArchivo(part->path,posFile,sb);
@@ -2199,14 +2206,15 @@ void Administrador::repLS(Funcion *funcion){
     int cont = 0;
     bool banderaPath = false;
     char pathDir[200];
-    strcpy(pathDir,funcion->file[0].data());
+    strcpy(pathDir,funcion->ruta.data());
     int numero_directorios = numeroDirectorios(pathDir);
-    while(pathDir[cont]!=NULL&&cont<funcion->file[0].size()+1){
+    while(pathDir[cont]!=NULL&&cont<funcion->ruta.size()+1){
         if(pathDir[cont]=='/')
         {
             cont++;
             string tokenActual = "";
             while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                if(pathDir[cont]!=10&&pathDir[cont]!=13)
                 tokenActual+=pathDir[cont];
                 cont++;
             }
@@ -2356,6 +2364,7 @@ void Administrador::crearArchivo(Funcion *funcion){
                     cont++;
                     string tokenActual = "";
                     while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                        if(pathDir[cont]!=10&&pathDir[cont]!=13)
                         tokenActual+=pathDir[cont];
                         cont++;
                     }
@@ -2863,6 +2872,7 @@ void Administrador::crearDirectorio(Funcion *funcion){
                         cont++;
                         string tokenActual = "";
                         while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                            if(pathDir[cont]!=10&&pathDir[cont]!=13)
                             tokenActual+=pathDir[cont];
                             cont++;
                         }
@@ -3083,13 +3093,15 @@ void Administrador::catArchivo(Funcion *funcion){
             int cont = 0;
             bool banderaPath = false;
 
-            while(pathDir[cont]!=NULL&&cont<funcion->path.size()+1){
+            while(pathDir[cont]!=NULL&&cont<funcion->file[0].size()+1){
                 if(pathDir[cont]=='/')
                 {
                     cont++;
                     string tokenActual = "";
                     while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
-                        tokenActual+=pathDir[cont];
+                        if(pathDir[cont]!=10&&pathDir[cont]!=13)
+                            if(pathDir[cont]!=10&&pathDir[cont]!=13)
+                            tokenActual+=pathDir[cont];
                         cont++;
                     }
                     array_directorios.push_back(tokenActual);
@@ -3105,8 +3117,11 @@ void Administrador::catArchivo(Funcion *funcion){
 
             int bloque = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
             if(bloque!=-1){
+                cout<<"********INICIO CONT************"<<endl;
                 string cont = getContenidoArchivo(part->path,bloque,sb);
+                cout<<pathDir<<endl;
                 cout<<cont<<endl;
+                cout<<"**********FIN CONT*************"<<endl;
             }else{
                 cerr<<"ERROR, CAT, NO EXISTE ESE PATH"<<endl;
             }
@@ -3123,7 +3138,7 @@ int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_d
     //Obtener carpeta actual
     iNodo inodo_actual = getInodo(path,sb.s_inode_start,posBitmap);
     if(posActualCarpeta==numero_directorios){
-        cout<<"ERROR, ESTA REPETIDO PERRO:"<<array_directorios[numero_directorios-1]<<endl;
+        cout<<"bien, ESTA REPETIDO PERRO:"<<array_directorios[numero_directorios-1]<<endl;
         return posBitmap;
     }
     int encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios.at(posActualCarpeta));
@@ -3131,7 +3146,7 @@ int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_d
     if(encontro_directorio == -1){
         //Si no lo encontró, vemos si se crea en esta dirección
         if(numero_directorios==posActualCarpeta+1){
-            catFile(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras);
+            return catFile(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras);
         }else{
             return -1;
             cout<<"ERROR, EL PATH NO EXISTE"<<endl;
@@ -3148,7 +3163,7 @@ int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_d
             }
         }
         //Si lo encontró en los directorios
-        catFile(sb,posBitmap,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras);
+        return catFile(sb,posBitmap,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras);
     }
     return -1;
 }
@@ -3204,7 +3219,11 @@ void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string
                     Journal journal_carpeta;
                     journal_carpeta.log_tipo=0;
                     journal_carpeta.log_tipo_operacion=0;
-                    strcpy(journal_carpeta.log_path,makePath(array_directorios,posActualCarpeta).data()); //CHECK
+                    if(posActualCarpeta==0){
+                        strcpy(journal_carpeta.log_path,""); //CHECK
+                    }else{
+                        strcpy(journal_carpeta.log_path,makePath(array_directorios,posActualCarpeta).data()); //CHECK
+                    }
                     journal_carpeta.contenido=0;
                     journal_carpeta.log_propietario=sesion->usrid;
                     journal_carpeta.log_grupo = sesion->groupid;
@@ -3611,6 +3630,7 @@ void Administrador::recuperar(Funcion *funcion){
             sb.s_first_ino=0;
             sb.s_free_block_count=nEstructuras*3;
             sb.s_free_inode_count=nEstructuras;
+            strcpy(sesion->idPart,funcion->id[0].data());
             escribirSuperBloque(part->path,sb,part->byteInicio);
             do{
 
@@ -3638,7 +3658,10 @@ void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal,
     vector<string> pene;
     Funcion *funcion= new Funcion();;
     string cont ;
-    strcpy(sesion->idPart, funcion->id[0].data());
+    sesion->usrid = journal.log_propietario;
+    sesion->groupid = journal.log_grupo;
+    sesion->tipo=4;
+
     switch (journal.log_tipo_operacion) {
     case 0:
         //Crear
@@ -3647,25 +3670,19 @@ void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal,
 
             funcion->opciones[3]=1;
             funcion->opciones[8]=1;
-            sesion->usrid = journal.log_propietario;
-            sesion->groupid = journal.log_grupo;
             funcion->path=journal.log_path;
-
+            funcion->path+="/";
+            funcion->path+=journal.log_nombre;
             crearDirectorio(funcion);
 
         }else{
             //Carpeta   mkfile
             funcion->opciones[3]=1;
-            if(strcmp(journal.log_nombre,"usuarios.txt")==0){
-                funcion->opciones[15]=1;
-                funcion->cont=journal.contenidousr;
-            }else{
+
                 funcion->opciones[0]=1;
                 funcion->size=0;
-            }
-            sesion->usrid = journal.log_propietario;
-            sesion->groupid = journal.log_grupo;
-            funcion->path="/";
+
+            funcion->path = journal.log_path;
             funcion->path+=journal.log_nombre;
             crearArchivo(funcion);
         }
@@ -3675,8 +3692,6 @@ void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal,
     case 2:
         //MKgrp
         funcion->opciones[6]=1;
-        sesion->usrid = journal.log_propietario;
-        sesion->groupid = journal.log_grupo;
         cont= journal.contenidousr;
         pene = split(cont,',');
         funcion->nombre = pene[2];
@@ -3687,8 +3702,6 @@ void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal,
         funcion->opciones[9]=1;
         funcion->opciones[10]=1;
         funcion->opciones[11]=1;
-        sesion->usrid = journal.log_propietario;
-        sesion->groupid = journal.log_grupo;
         cont= journal.contenidousr;
         pene = split(cont,',');
         funcion->grp = pene[2];
@@ -3696,9 +3709,81 @@ void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal,
         funcion->pwd = pene[4];//check
         crearUsr(funcion);
         break;
+    case 10:
+        crearRoot(sb,path);
+       break;
+    case 11:
+        crearUsers(sb,path);
+        break;
     default:
         break;
     }
+}
+
+void Administrador::crearRoot(SuperBloque sb, char path[]){
+    iNodo raiz;
+    raiz.i_ctime =raiz.i_mtime=raiz.i_atime= time(0);
+    //propietario
+    raiz.i_gid=1;
+    raiz.i_uid=1;
+    //permisos
+    int i;
+    raiz.i_perm_lectura=raiz.i_perm_ejecucion=raiz.i_perm_escritura=0;
+    for (i=0;i<15;i++) {
+        raiz.i_block[i]=-1;
+    }
+    raiz.i_size=0;
+    raiz.i_type=0;
+    raiz.i_block[0]=0;
+    BloqueCarpeta bcarpeta;
+    for (int i=0;i<4;i++) {
+        strcpy( bcarpeta.b_content[i].b_name,"");
+        bcarpeta.b_content[i].b_inodo=-1;
+    }
+    strcpy(bcarpeta.b_content[0].b_name,".");
+    bcarpeta.b_content[0].b_inodo=0;
+    strcpy(bcarpeta.b_content[1].b_name,"..");
+    bcarpeta.b_content[1].b_inodo=0;
+    strcpy(bcarpeta.b_content[2].b_name,"users.txt");
+    bcarpeta.b_content[2].b_inodo=1;
+
+    escribirBloqueCarpeta(bcarpeta,path,sb,0);
+
+    escribirInodo(raiz,path,sb,0);
+    escribirPosBitmap(sb.s_bm_block_start,0,path,'1');
+    escribirPosBitmap(sb.s_bm_inode_start,0,path,'1');
+    sb.s_first_ino=getFirstFreeBit(sb.s_bm_inode_start,sb.s_inodes_count,path);
+    sb.s_first_blo=getFirstFreeBit(sb.s_bm_block_start,sb.s_blocks_count,path);
+    escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
+}
+void Administrador::crearUsers(SuperBloque sb, char *path){
+    iNodo raiz;
+    raiz.i_ctime =raiz.i_mtime=raiz.i_atime= time(0);
+    //propietario
+    raiz.i_gid=1;
+    raiz.i_uid=1;
+    //permisos
+    int i;
+    raiz.i_perm_lectura=raiz.i_perm_ejecucion=raiz.i_perm_escritura=0;
+    for (i=0;i<15;i++) {
+        raiz.i_block[i]=-1;
+    }
+    raiz.i_size=26;
+    raiz.i_type=1;
+    raiz.i_block[0]=1;
+    BloqueArchivo barchivo;
+
+    strcpy(barchivo.b_content,"1,G,root\n1,U,root,123");
+
+    escribirBloqueArchivo(barchivo,path,sb,1);
+
+    escribirInodo(raiz,path,sb,1);
+    escribirPosBitmap(sb.s_bm_block_start,1,path,'1');
+    escribirPosBitmap(sb.s_bm_inode_start,1,path,'1');
+    sb.s_first_ino=getFirstFreeBit(sb.s_bm_inode_start,sb.s_inodes_count,path);
+    sb.s_first_blo=getFirstFreeBit(sb.s_bm_block_start,sb.s_blocks_count,path);
+    escribirSuperBloque(path,sb,listaDisco->existeId(sesion->idPart)->byteInicio);
+
 }
 
 Journal Administrador::getJournal( int inicio, int pos,char path[]){

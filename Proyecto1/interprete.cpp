@@ -86,7 +86,7 @@ void Interprete::ejecutar(string entrada){
             tokenActual = "";
             contador++;
             //Lee el id del parametro
-            if(comando[contador]=='p'||comando[contador]=='r'){
+            if(comando[contador]=='p'||comando[contador]=='r'||comando[contador]=='P'||comando[contador]=='R'){
                 if(!esLetra(comando[contador+1])){
                     tokenActual = comando[contador];
                 }else{
@@ -197,7 +197,7 @@ void Interprete::ejecutar(string entrada){
                             funcion->dest=tokenActual;
                             cout<<"se guardo el dest: "<<funcion->dest<<endl;
                             break;
-                        case 20:
+                        case 19:
                             funcion->ruta=tokenActual;
                             cout<<"se guardo el ruta: "<<funcion->ruta<<endl;
                             break;
@@ -472,7 +472,9 @@ void Interprete::ejecutarComando(Funcion *funcion){
             if(fichero.is_open()){
                 while(getline(fichero,line)){
                     std::copy(line.begin(), line.end(), comando);
-                    comando[line.size()] = '\0';
+                    comando[line.size()+1] = '\0';
+                    comando[line.size()] = 32;
+
                     if(comando[0]!='#')
                         this->ejecutar(comando);
                 }
