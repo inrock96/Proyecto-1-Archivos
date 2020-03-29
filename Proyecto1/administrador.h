@@ -72,6 +72,7 @@ private:
     void lossBlock(SuperBloque sb, int numeroEstructuras,char path[]);
     int getGroupId(char path[],SuperBloque sb,string grupo);
     vector <string> getUsuario(char path[],SuperBloque sb, string nombreusuario);
+    vector <string> getUsuario(char path[],SuperBloque sb, int nombreusuario);
     string getGrupoUsers(char path[],SuperBloque sb,int grupo);
     void insertarUsers(string contenido,SuperBloque sb, char path[],int nEstructuras);
     bool existeGrupo(vector<string> grupos, string grupo);
@@ -160,10 +161,21 @@ private:
     void escribirJournal(Journal journal,char path[],SuperBloque super, int nEstructuras, int inicio);
     Journal getJournal( int inicio,int pos,char path[]);
     void llenarContSize(int size,char cont[]);
-    int catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras,string nombreArchivo);
+    int catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras);
     void escribirFileBitmap(FILE* archivo,FILE*archivoBM,int nEstructuras,int inicio);
+
+    void definirInodoBlock(FILE* archivo, char path[],int apActual,SuperBloque sb);
+    void definirIndirectoBlock(FILE* archivo, char path[],int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
+    void definirCarpetaBlock(FILE* archivo, char path[],int apActual,SuperBloque sb);
+
+
     void definirJournal(FILE* archivo, char path[],int apActual,SuperBloque sb,int inicio);
+    void definirInodoInode(FILE* archivo, char path[],int apActual,SuperBloque sb);
+    void definirIndirectoInode(FILE* archivo, char path[],int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
+    void definirCarpetaInode(FILE* archivo, char path[],int apActual,SuperBloque sb);
+
     void definirInodoTree(FILE* archivo, char path[],int apActual,SuperBloque sb);
+
 //    void definirDDTree(FILE* archivo, FILE* archivoAVD,int apActual,SuperBoot super,char nombre[]);
     void definirIndirectoTree(FILE* archivo, char path[],int apActual,SuperBloque sb,int tipoIndirecto,int tipoBloque);
     void definirCarpetaTree(FILE* archivo, char path[],int apActual,SuperBloque sb);

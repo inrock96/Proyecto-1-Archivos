@@ -1,4 +1,4 @@
-#include "administrador.h"
+﻿#include "administrador.h"
 #define TAMANOBYTE 1024
 Administrador::Administrador()
 {
@@ -147,6 +147,26 @@ vector<string> Administrador::getUsuario(char *path, SuperBloque sb, string nomb
         if(usuario.size()>0){
             if(usuario[0].compare("0")!=0&&usuario[1].compare("U")==0){
                 if(usuario[3].compare(nombreusuario)==0){
+                    return usuario;
+                }
+            }
+        }
+    }
+    return nosirve;
+}
+
+vector<string> Administrador::getUsuario(char path[],SuperBloque sb, int nombreusuario){
+    string contenido = getContenidoArchivo(path,1,sb);
+    vector <string> usuarios = split(contenido,10);
+    vector <string> nosirve;
+    nosirve.push_back("");
+    int i;
+    string nombre = to_string(nombreusuario);
+    for (i=0;i<usuarios.size();i++) {
+        vector<string> usuario = split(usuarios[i],',');
+        if(usuario.size()>0){
+            if(usuario[0].compare("0")!=0&&usuario[1].compare("U")==0){
+                if(usuario[0].compare(nombre)==0){
                     return usuario;
                 }
             }
@@ -331,7 +351,7 @@ string Administrador::getContenidoArchivoIndirecto(char *path, int apBloque, Sup
 
 int Administrador::numeroEstructuras(int tamanoPart, int tipo){
     double n;
-    if(tipo==3){
+    if(tipo==3||tipo==4){
         n = (tamanoPart - sizeof (SuperBloque)) /
                 (4.0 + 3.0 * 64.0 + sizeof (iNodo) + sizeof (Journal));
 
@@ -1687,6 +1707,38 @@ void Administrador::repTree(Funcion *funcion){
         generarReporte(funcion,"arbol");
     }
 }
+void Administrador::repBlock(Funcion *funcion){
+    FILE* archivo = fopen("/home/mia/Reportes/block.dot","w");
+    char ide[5];
+    strcpy(ide,funcion->id[0].c_str());
+   SuperBloque sb= getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+
+        if(archivo!=nullptr){
+            fprintf(archivo,"Digraph g{ \n");
+
+            definirInodoBlock(archivo,part->path,0,sb);
+            fprintf(archivo, "}\n");
+            fclose(archivo);
+            generarReporte(funcion,"block");
+        }
+}
+void Administrador::repInodo(Funcion *funcion){
+    FILE* archivo = fopen("/home/mia/Reportes/inode.dot","w");
+    char ide[5];
+    strcpy(ide,funcion->id[0].c_str());
+   SuperBloque sb= getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+
+        if(archivo!=nullptr){
+            fprintf(archivo,"Digraph g{ \n");
+
+            definirInodoInode(archivo,part->path,0,sb);
+            fprintf(archivo, "}\n");
+            fclose(archivo);
+            generarReporte(funcion,"inode");
+        }
+}
 
 void Administrador::definirInodoTree(FILE *archivo, char path[], int apActual, SuperBloque sb){
     char hora1[128];
@@ -1751,7 +1803,87 @@ void Administrador::definirInodoTree(FILE *archivo, char path[], int apActual, S
         }
     }
 }
+void Administrador::definirInodoInode(FILE *archivo, char *path, int apActual, SuperBloque sb){
+    char hora1[128];
+    char hora2[128];
+    char hora3[128];
+    iNodo inodo;
+    inodo = getInodo(path,sb.s_inode_start,apActual);
+    horaAString(hora1,inodo.i_atime);
+    horaAString(hora2,inodo.i_ctime);
+    horaAString(hora3,inodo.i_mtime);
 
+    fprintf(archivo,"inodo%d[label=\"",apActual);
+    fprintf(archivo,"inodo%d|tamaño=%d|tipo=%d|idusr=%d|gid=%d|atime=%s|ctime=%s|mtime=%s|ugo=%d%d%d",
+            apActual,
+            inodo.i_size,
+            inodo.i_type,
+            inodo.i_uid,
+            inodo.i_gid,
+            hora1,
+            hora2,
+            hora3,
+            inodo.i_perm_lectura,
+            inodo.i_perm_escritura,
+            inodo.i_perm_ejecucion);
+    /*Recorrer punteritos*/
+    int j;
+    for (j = 0;j<12;j++) {
+        if(inodo.i_block[j]!=-1){
+            fprintf(archivo,"|{AD%d}",j);
+        }
+    }
+    for (j = 12;j<15;j++) {
+        if(inodo.i_block[j]!=-1){
+            fprintf(archivo,"|{AI%d}",j-11);
+        }
+    }
+    fprintf(archivo, "\",color=white,fillcolor=\"#A30015\",fontcolor=white];\n");
+    if(inodo.i_type==0){
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                definirCarpetaInode(archivo,path,inodo.i_block[j],sb);
+            }
+        }
+    }
+
+    for (j=12;j<15;j++) {
+        if(inodo.i_block[j]!=-1){
+            if(inodo.i_type==0)
+                definirIndirectoInode(archivo,path,inodo.i_block[j],sb,j-11,0);
+            else
+                definirIndirectoInode(archivo,path,inodo.i_block[j],sb,j-11,1);
+        }
+    }
+}
+void Administrador::definirInodoBlock(FILE *archivo, char *path, int apActual, SuperBloque sb){
+    iNodo inodo;
+    inodo = getInodo(path,sb.s_inode_start,apActual);
+    int j;
+    if(inodo.i_type==0){
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                definirCarpetaBlock(archivo,path,inodo.i_block[j],sb);
+            }
+        }
+    }
+    else{
+        for(j=0;j<12;j++){
+            if(inodo.i_block[j]!=-1){
+                definirArchivoTree(archivo,path,inodo.i_block[j],sb);
+            }
+        }
+    }
+
+    for (j=12;j<15;j++) {
+        if(inodo.i_block[j]!=-1){
+            if(inodo.i_type==0)
+                definirIndirectoBlock(archivo,path,inodo.i_block[j],sb,j-11,0);
+            else
+                definirIndirectoBlock(archivo,path,inodo.i_block[j],sb,j-11,1);
+        }
+    }
+}
 void Administrador::definirCarpetaTree(FILE *archivo, char path[], int apActual, SuperBloque sb){
 
     BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,apActual);
@@ -1772,6 +1904,40 @@ void Administrador::definirCarpetaTree(FILE *archivo, char path[], int apActual,
             if(strcmp(carpeta.b_content[i].b_name,".")!=0&&strcmp(carpeta.b_content[i].b_name,"..")!=0){
                 fprintf(archivo, "bloque%i:N%i->inodo%i;\n", apActual, i, carpeta.b_content[i].b_inodo);
                 definirInodoTree(archivo,path,carpeta.b_content[i].b_inodo,sb);
+            }
+        }
+    }
+}
+
+void Administrador::definirCarpetaInode(FILE *archivo, char *path, int apActual, SuperBloque sb){
+    BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,apActual);
+    int i;
+    for (i = 0; i < 4; i++) {
+        if (carpeta.b_content[i].b_inodo > -1) {
+            if(strcmp(carpeta.b_content[i].b_name,".")!=0&&strcmp(carpeta.b_content[i].b_name,"..")!=0){
+                definirInodoInode(archivo,path,carpeta.b_content[i].b_inodo,sb);
+            }
+        }
+    }
+}
+
+void Administrador::definirCarpetaBlock(FILE *archivo, char *path, int apActual, SuperBloque sb){
+    BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,apActual);
+    fprintf(archivo,"bloque%d[label=\"bloque%d",apActual,apActual);
+    int i;
+    for (i=0;i<4;i++) {
+        if(carpeta.b_content[i].b_inodo!=-1){
+            fprintf(archivo,"|{%s|<N%d>%i}",carpeta.b_content[i].b_name,i,carpeta.b_content[i].b_inodo);
+
+        }else{
+            fprintf(archivo,"|{--|<N%d>-1}",i);
+        }
+    }
+    fprintf(archivo, "\",color=white,fillcolor=\"#7A6C5D\",fontcolor=white];\n");
+    for (i = 0; i < 4; i++) {
+        if (carpeta.b_content[i].b_inodo > -1) {
+            if(strcmp(carpeta.b_content[i].b_name,".")!=0&&strcmp(carpeta.b_content[i].b_name,"..")!=0){
+                definirInodoBlock(archivo,path,carpeta.b_content[i].b_inodo,sb);
             }
         }
     }
@@ -1823,6 +1989,62 @@ void Administrador::definirIndirectoTree(FILE *archivo, char path[], int apActua
             if(bap.b_pointers[i]!=-1){
                 fprintf(archivo,"bloque%d:N%d->bloque%d;\n",apActual,i,bap.b_pointers[i]);
                 definirIndirectoTree(archivo,path,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
+            }
+        }
+    }
+}
+
+void Administrador::definirIndirectoInode(FILE *archivo, char *path, int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
+    BloqueApuntador bap = getBloqueApuntador(path,sb.s_block_start,apActual);
+    int i;
+    if(tipoIndirecto==1){
+        if(tipoBloque==0){
+            //Jalamos un bloque carpeta
+            for (i = 0;i<16;i++) {
+                if(bap.b_pointers[i]>-1){
+                    definirCarpetaInode(archivo,path,bap.b_pointers[i],sb);
+                }
+            }
+        }
+    }else{
+        for (i =0;i<16;i++) {
+            if(bap.b_pointers[i]!=-1){
+                definirIndirectoInode(archivo,path,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
+            }
+        }
+    }
+}
+
+void Administrador::definirIndirectoBlock(FILE *archivo, char *path, int apActual, SuperBloque sb, int tipoIndirecto, int tipoBloque){
+    BloqueApuntador bap = getBloqueApuntador(path,sb.s_block_start,apActual);
+    fprintf(archivo,"bloque%d[label=\"Bloque%d",apActual,apActual);
+    for (int i = 0;i<16;i++) {
+        if(bap.b_pointers[i]>-1){
+            fprintf(archivo,"|{AP%d|<N%d>}",i+1,i);
+        }
+    }
+    fprintf(archivo, "\",color=white,fillcolor=\"#FFCF99\",fontcolor=white];\n");
+    int i;
+    if(tipoIndirecto==1){
+        if(tipoBloque==0){
+            //Jalamos un bloque carpeta
+            for (i = 0;i<16;i++) {
+                if(bap.b_pointers[i]>-1){
+                    definirCarpetaBlock(archivo,path,bap.b_pointers[i],sb);
+                }
+            }
+        }else{
+            //Jalamos el bloque archivo
+            for (i = 0;i<16;i++) {
+                if(bap.b_pointers[i]>-1){
+                    definirArchivoTree(archivo,path,bap.b_pointers[i],sb);
+                }
+            }
+        }
+    }else{
+        for (i =0;i<16;i++) {
+            if(bap.b_pointers[i]!=-1){
+                definirIndirectoBlock(archivo,path,bap.b_pointers[i],sb,tipoIndirecto-1,tipoBloque);
             }
         }
     }
@@ -1904,23 +2126,143 @@ void Administrador::reportes(Funcion *funcion){
         }else if(funcion->nombre.compare("bm_block")==0){
             repBMBlock(funcion);
         }else if(funcion->nombre.compare("file")==0){
-            //repFile(funcion);
+            repFile(funcion);
         }else if(funcion->nombre.compare("inode")==0){
-            //repInodo(funcion);
+            repInodo(funcion);
         }else if(funcion->nombre.compare("block")==0){
-            //repBlock(funcion);
+            repBlock(funcion);
         }else if(funcion->nombre.compare("tree")==0){      //Primero
             repTree(funcion);
         }else if(funcion->nombre.compare("sb")==0){        //fresh
             repSuperBloque(funcion);
         }else if(funcion->nombre.compare("ls")==0){        //Hard
-            //repLS(funcion);
+            repLS(funcion);
         }
         else{
             cout<<"Error, ese reporte no existe papá"<<endl;
         }
     }else {
         cout<<"Error al crear reporte, no están todos los campos necesarios"<<endl;
+    }
+}
+
+void Administrador::repFile(Funcion *funcion){
+    char ide[5];
+    strcpy(ide,funcion->id[0].c_str());
+    SuperBloque sb= getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+    vector<string> array_directorios;
+    int contadorActual = 0;
+    int cont = 0;
+    bool banderaPath = false;
+    char pathDir[200];
+    strcpy(pathDir,funcion->file[0].data());
+    int numero_directorios = numeroDirectorios(pathDir);
+    while(pathDir[cont]!=NULL&&cont<funcion->file[0].size()+1){
+        if(pathDir[cont]=='/')
+        {
+            cont++;
+            string tokenActual = "";
+            while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                tokenActual+=pathDir[cont];
+                cont++;
+            }
+            array_directorios.push_back(tokenActual);
+            contadorActual++;
+        }
+        else{
+            banderaPath=true;
+            break;
+        }
+    }
+    int posFile = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+    if(posFile!=-1){
+        char path1[200];
+       strcpy(path1,funcion->path.data());
+        ofstream f(funcion->path);
+        if(f.is_open()){
+            f<<getContenidoArchivo(part->path,posFile,sb);
+            f.close();
+        }
+    }else{
+        cerr<<"ERROR, REPFILE, ALGO SALIO MAL"<<endl;
+    }
+}
+void Administrador::repLS(Funcion *funcion){
+    FILE* archivo = fopen("/home/mia/Reportes/ls.dot","w");
+    char ide[5];
+    strcpy(ide,funcion->id[0].c_str());
+    SuperBloque sb= getSuperBloque(ide);
+    NodoParticion* part = listaDisco->existeId(ide);
+    vector<string> array_directorios;
+    int contadorActual = 0;
+    int cont = 0;
+    bool banderaPath = false;
+    char pathDir[200];
+    strcpy(pathDir,funcion->file[0].data());
+    int numero_directorios = numeroDirectorios(pathDir);
+    while(pathDir[cont]!=NULL&&cont<funcion->file[0].size()+1){
+        if(pathDir[cont]=='/')
+        {
+            cont++;
+            string tokenActual = "";
+            while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                tokenActual+=pathDir[cont];
+                cont++;
+            }
+            array_directorios.push_back(tokenActual);
+            contadorActual++;
+        }
+        else{
+            banderaPath=true;
+            break;
+        }
+    }
+    int posFile = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+    if(posFile!=-1){
+        char hora[128];
+        if(archivo!=nullptr){
+            fprintf(archivo,"Digraph g{ \n");
+            iNodo inodo_carpeta = getInodo(part->path,sb.s_inode_start,posFile);
+            fprintf(archivo,"node%d[shape=none\nlabel = <\n"
+                       "<table border=\'0\' cellborder=\'1\' color=\'blue\' cellspacing=\'0\'>",posFile);
+            fprintf(archivo,"<tr><td>LS</td></tr>\n");
+            fprintf(archivo,"<tr><td>Permisos</td><td>Owner</td><td>Grupo</td><td>Size</td><td>Fecha y hora</td><td>Tipo</td><td>Name</td></tr>\n");
+            for (int i =0;i<12;i++) {
+                if(inodo_carpeta.i_block[i]!=-1){
+                    BloqueCarpeta carpeta = getBloqueCarpeta(part->path,sb.s_block_start,inodo_carpeta.i_block[i]);
+                    for (int j = 0;j<4;j++) {
+                        if(strcmp(carpeta.b_content[j].b_name,".")!=0&&strcmp(carpeta.b_content[j].b_name,"..")!=0){
+                            if(carpeta.b_content[j].b_inodo!=-1){
+                                iNodo actual = getInodo(part->path,sb.s_inode_start,carpeta.b_content[j].b_inodo);
+                                fprintf(archivo,"<tr>");
+                                fprintf(archivo,"<td>%c%c%c</td>",actual.i_perm_lectura,actual.i_perm_escritura,actual.i_perm_ejecucion);
+                                vector<string> usr = getUsuario(part->path,sb,actual.i_uid);
+                                fprintf(archivo,"<td>%s</td>",usr[3].data());
+                                fprintf(archivo,"<td>%s</td>",usr[2].data());
+                                fprintf(archivo,"<td>%d</td>",actual.i_size);
+                                fprintf(archivo,"<td>%s</td>",usr[2].data());
+                                horaAString(hora,actual.i_mtime);
+                                fprintf(archivo,"<td>%s</td>",hora);
+                                if(actual.i_type=0){
+                                    fprintf(archivo,"<td>%s</td>","carpeta");
+                                }else{
+                                    fprintf(archivo,"<td>%s</td>","archivo");
+                                }
+                                fprintf(archivo,"<td>%s</td>",carpeta.b_content[j].b_name);
+                                fprintf(archivo,"</tr>\n");
+                            }
+                        }
+                    }
+                }
+            }
+            fprintf(archivo, "</table>>\n];");
+            fprintf(archivo, "}\n");
+            fclose(archivo);
+            generarReporte(funcion,"ls");
+        }
+    }else{
+        cerr<<"ERROR, REPLS, ALGO SALIO MAL"<<endl;
     }
 }
 
@@ -1974,7 +2316,7 @@ void Administrador::definirJournal(FILE *archivo, char path[], int apActual, Sup
 }
 
 void Administrador::crearArchivo(Funcion *funcion){
-    if(funcion->opciones[3]==1&&(funcion->opciones[0]==1||funcion->opciones[15])){
+    if(funcion->opciones[3]==1&&(funcion->opciones[0]==1||funcion->opciones[15]==1)){
         if(sesion->usrid!=-1){
             int size=-1;
             string contenido="";
@@ -2730,11 +3072,89 @@ void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> a
 
 
 void Administrador::catArchivo(Funcion *funcion){
+    if(funcion->opciones[16]==1){
+        if(sesion->usrid!=-1){
+            char pathDir[funcion->file[0].size()+1];
+            strcpy(pathDir,funcion->file[0].data());
+            int numero_directorios = numeroDirectorios(pathDir);
+            NodoParticion *part = listaDisco->existeId(sesion->idPart);
+            vector<string> array_directorios;
+            int contadorActual = 0;
+            int cont = 0;
+            bool banderaPath = false;
 
-}
-int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, string nombreArchivo){
+            while(pathDir[cont]!=NULL&&cont<funcion->path.size()+1){
+                if(pathDir[cont]=='/')
+                {
+                    cont++;
+                    string tokenActual = "";
+                    while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                        tokenActual+=pathDir[cont];
+                        cont++;
+                    }
+                    array_directorios.push_back(tokenActual);
+                    contadorActual++;
+                }
+                else{
+                    banderaPath=true;
+                    break;
+                }
+            }
 
+            SuperBloque sb = getSuperBloque(sesion->idPart);
+
+            int bloque = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
+            if(bloque!=-1){
+                string cont = getContenidoArchivo(part->path,bloque,sb);
+                cout<<cont<<endl;
+            }else{
+                cerr<<"ERROR, CAT, NO EXISTE ESE PATH"<<endl;
+            }
+        }else{
+            cerr<<"ERROR, CAT NO HAY SESION INICIADA"<<endl;
+        }
+    }else{
+        cerr<<"ERROR,CAT NO ES UN PARAM VALIDO"<<endl;
+    }
 }
+int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras){
+    char path[200];
+    strcpy(path,part->path);
+    //Obtener carpeta actual
+    iNodo inodo_actual = getInodo(path,sb.s_inode_start,posBitmap);
+    if(posActualCarpeta==numero_directorios){
+        cout<<"ERROR, ESTA REPETIDO PERRO:"<<array_directorios[numero_directorios-1]<<endl;
+        return posBitmap;
+    }
+    int encontro_directorio = getBloqueCarpetaNombre(path,sb,inodo_actual,array_directorios.at(posActualCarpeta));
+
+    if(encontro_directorio == -1){
+        //Si no lo encontró, vemos si se crea en esta dirección
+        if(numero_directorios==posActualCarpeta+1){
+            catFile(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras);
+        }else{
+            return -1;
+            cout<<"ERROR, EL PATH NO EXISTE"<<endl;
+        }
+    }else{
+        //Actualizamos el posbitmap
+        BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
+        for (int i = 0;i<4;i++) {
+            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+
+                posBitmap = carpeta.b_content[i].b_inodo;
+                if(posBitmap!=-1)
+                    break;
+            }
+        }
+        //Si lo encontró en los directorios
+        catFile(sb,posBitmap,array_directorios,posActualCarpeta+1,numero_directorios,part,nEstructuras);
+    }
+    return -1;
+}
+
+
+
 void Administrador::insertarCarpeta(SuperBloque sb, int posBitmap, vector<string>array_directorios, int posActualCarpeta, int numero_directorios, NodoParticion *part, int nEstructuras, char *path, iNodo nodo){
     if(posBitmap>=0){
         char uno ='1';
@@ -3193,12 +3613,19 @@ void Administrador::recuperar(Funcion *funcion){
             sb.s_free_inode_count=nEstructuras;
             escribirSuperBloque(part->path,sb,part->byteInicio);
             do{
-                if(contador>nEstructuras){
+
+                SuperBloque sb1 = getSuperBloque(sesion->idPart);
+
+                journal = getJournal(part->byteInicio+sizeof (SuperBloque),contador,part->path);
+                if(contador>=nEstructuras||journal.ugo==-1){
                     break;
                 }
-                journal = getJournal(part->byteInicio+sizeof (SuperBloque),contador,part->path);
-                ejecutarJournal(sb,part->path,journal,part->nombre);
+                ejecutarJournal(sb1,part->path,journal,part->nombre);
+
+                contador++;
             }while(journal.ugo>=0);
+            sb.s_filesystem_type=3;
+            escribirSuperBloque(part->path,sb,part->byteInicio);
         }else{
             cerr<<"ERROR RECOVERY, ESTA PARTICION NO ES EXT3"<<endl;
         }
@@ -3208,29 +3635,65 @@ void Administrador::recuperar(Funcion *funcion){
 }
 
 void Administrador::ejecutarJournal(SuperBloque sb, char *path, Journal journal, char *id){
-    Funcion *funcion;
+    vector<string> pene;
+    Funcion *funcion= new Funcion();;
+    string cont ;
+    strcpy(sesion->idPart, funcion->id[0].data());
     switch (journal.log_tipo_operacion) {
     case 0:
         //Crear
         if(journal.log_tipo==0){
             //Archivo   mkdir
 
+            funcion->opciones[3]=1;
+            funcion->opciones[8]=1;
+            sesion->usrid = journal.log_propietario;
+            sesion->groupid = journal.log_grupo;
+            funcion->path=journal.log_path;
+
             crearDirectorio(funcion);
 
         }else{
             //Carpeta   mkfile
+            funcion->opciones[3]=1;
+            if(strcmp(journal.log_nombre,"usuarios.txt")==0){
+                funcion->opciones[15]=1;
+                funcion->cont=journal.contenidousr;
+            }else{
+                funcion->opciones[0]=1;
+                funcion->size=0;
+            }
+            sesion->usrid = journal.log_propietario;
+            sesion->groupid = journal.log_grupo;
+            funcion->path="/";
+            funcion->path+=journal.log_nombre;
             crearArchivo(funcion);
-
         }
         break;
     case 1:
         break;
     case 2:
         //MKgrp
+        funcion->opciones[6]=1;
+        sesion->usrid = journal.log_propietario;
+        sesion->groupid = journal.log_grupo;
+        cont= journal.contenidousr;
+        pene = split(cont,',');
+        funcion->nombre = pene[2];
         crearGrupo(funcion);
         break;
     case 3:
         //Mkusr
+        funcion->opciones[9]=1;
+        funcion->opciones[10]=1;
+        funcion->opciones[11]=1;
+        sesion->usrid = journal.log_propietario;
+        sesion->groupid = journal.log_grupo;
+        cont= journal.contenidousr;
+        pene = split(cont,',');
+        funcion->grp = pene[2];
+        funcion->usr = pene[3];
+        funcion->pwd = pene[4];//check
         crearUsr(funcion);
         break;
     default:
