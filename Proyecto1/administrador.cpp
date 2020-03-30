@@ -2872,7 +2872,6 @@ void Administrador::crearDirectorio(Funcion *funcion){
                         cont++;
                         string tokenActual = "";
                         while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
-                            if(pathDir[cont]!=10&&pathDir[cont]!=13)
                             tokenActual+=pathDir[cont];
                             cont++;
                         }

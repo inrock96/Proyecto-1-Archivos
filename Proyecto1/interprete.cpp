@@ -118,7 +118,7 @@ void Interprete::ejecutar(string entrada){
             //contador++;
             while(esEspacio(comando[contador])&&comando[contador]!=NULL)
                 contador++;
-            if(comando[contador]==NULL){
+            if(comando[contador]==NULL&&opActual!=13&&opActual!=14){
                 cerr<<"ERROR, NO SE ENCONTRO EL VALOR DEL PARAMETRO"<<endl;
                 return;
             }
