@@ -1720,8 +1720,14 @@ void Administrador::repBlock(Funcion *funcion){
 
         if(archivo!=nullptr){
             fprintf(archivo,"Digraph g{ \n");
-
-            definirInodoBlock(archivo,part->path,0,sb);
+            FILE* archivoPrueba = fopen(part->path,"rb+");
+            char test;
+            fseek(archivoPrueba,sb.s_bm_block_start,SEEK_SET);
+            fread(&test,1,1,archivoPrueba);
+            fclose(archivoPrueba);
+            if(test!=0){
+                definirInodoBlock(archivo,part->path,0,sb);
+            }
             fprintf(archivo, "}\n");
             fclose(archivo);
             generarReporte(funcion,"block");
@@ -1736,8 +1742,14 @@ void Administrador::repInodo(Funcion *funcion){
 
         if(archivo!=nullptr){
             fprintf(archivo,"Digraph g{ \n");
-
-            definirInodoInode(archivo,part->path,0,sb);
+            FILE* archivoPrueba = fopen(part->path,"rb+");
+            char test;
+            fseek(archivoPrueba,sb.s_bm_block_start,SEEK_SET);
+            fread(&test,1,1,archivoPrueba);
+            fclose(archivoPrueba);
+            if(test!=0){
+                definirInodoInode(archivo,part->path,0,sb);
+            }
             fprintf(archivo, "}\n");
             fclose(archivo);
             generarReporte(funcion,"inode");
@@ -2226,6 +2238,14 @@ void Administrador::repLS(Funcion *funcion){
             break;
         }
     }
+    FILE* archivoPrueba = fopen(part->path,"rb+");
+    char test;
+    fseek(archivoPrueba,sb.s_bm_block_start,SEEK_SET);
+    fread(&test,1,1,archivoPrueba);
+    fclose(archivoPrueba);
+    if(test==10){
+        return;
+    }
     int posFile = catFile(sb,0,array_directorios,0,numero_directorios,part,numeroEstructuras(part->tamano,sb.s_filesystem_type));
     if(posFile!=-1){
         char hora[128];
@@ -2244,12 +2264,11 @@ void Administrador::repLS(Funcion *funcion){
                             if(carpeta.b_content[j].b_inodo!=-1){
                                 iNodo actual = getInodo(part->path,sb.s_inode_start,carpeta.b_content[j].b_inodo);
                                 fprintf(archivo,"<tr>");
-                                fprintf(archivo,"<td>%c%c%c</td>",actual.i_perm_lectura,actual.i_perm_escritura,actual.i_perm_ejecucion);
+                                fprintf(archivo,"<td>%d%d%d</td>",actual.i_perm_lectura,actual.i_perm_escritura,actual.i_perm_ejecucion);
                                 vector<string> usr = getUsuario(part->path,sb,actual.i_uid);
                                 fprintf(archivo,"<td>%s</td>",usr[3].data());
                                 fprintf(archivo,"<td>%s</td>",usr[2].data());
                                 fprintf(archivo,"<td>%d</td>",actual.i_size);
-                                fprintf(archivo,"<td>%s</td>",usr[2].data());
                                 horaAString(hora,actual.i_mtime);
                                 fprintf(archivo,"<td>%s</td>",hora);
                                 if(actual.i_type=0){
@@ -2428,7 +2447,6 @@ void Administrador::crearFile(SuperBloque sb,
     }
     if(encontro_directorio==-1){
         if(numero_directorios==posActualCarpeta+1){
-
             insertarFile(sb,posBitmap,array_directorios,nombre_archivo,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual,tamano,contenido);
         }else{
             cerr<<"ERROR, EL PATH NO EXISTE"<<endl;
@@ -2436,8 +2454,10 @@ void Administrador::crearFile(SuperBloque sb,
     }else{
         BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
         for (int i = 0;i<4;i++) {
-            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
-                if(carpeta.b_content[i].b_inodo!=-1){
+            if(carpeta.b_content[i].b_inodo!=-1){
+
+                if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+
                     posBitmap = carpeta.b_content[i].b_inodo;
                     break;
                 }
@@ -2872,6 +2892,8 @@ void Administrador::crearDirectorio(Funcion *funcion){
                         cont++;
                         string tokenActual = "";
                         while(pathDir[cont]!=NULL&&pathDir[cont]!='/'){
+                            if(pathDir[cont]!=10&&pathDir[cont]!=13)
+
                             tokenActual+=pathDir[cont];
                             cont++;
                         }
@@ -2987,10 +3009,12 @@ int Administrador::getBloqueCarpetaNombre(char path[],SuperBloque sb,iNodo inodo
             //Si es diferente de 0 jalamos el bloque carpeta
             BloqueCarpeta carpeta= getBloqueCarpeta(path,sb.s_block_start,inodo_actual.i_block[i]);
             for (int j = 0;j<4;j++) {
-                if(strcmp(carpeta.b_content[j].b_name,nombre_directorio.data())==0){
-                    //Si son iguales
-                    encontro_directorio=inodo_actual.i_block[i];
-                    break;
+                if(carpeta.b_content[j].b_inodo!=-1){
+                    if(strcmp(carpeta.b_content[j].b_name,nombre_directorio.data())==0){
+                        //Si son iguales
+                        encontro_directorio=inodo_actual.i_block[i];
+                        break;
+                    }
                 }
             }
         }
@@ -3059,6 +3083,7 @@ void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> a
     if(encontro_directorio == -1){
         //Si no lo encontró, vemos si se crea en esta dirección
         if(numero_directorios==posActualCarpeta+1){
+
             insertarCarpeta(sb,posBitmap,array_directorios,posActualCarpeta,numero_directorios,part,nEstructuras,path,inodo_actual);
         }else{
             cout<<"ERROR, EL PATH NO EXISTE"<<endl;
@@ -3067,11 +3092,13 @@ void Administrador::crearCarpeta(SuperBloque sb, int posBitmap, vector<string> a
         //Actualizamos el posbitmap
         BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
         for (int i = 0;i<4;i++) {
-            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+            if(carpeta.b_content[i].b_inodo!=-1){
 
-                posBitmap = carpeta.b_content[i].b_inodo;
-                if(posBitmap!=-1)
+                if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+
+                    posBitmap = carpeta.b_content[i].b_inodo;
                     break;
+                }
             }
         }
         //Si lo encontró en los directorios
@@ -3154,11 +3181,13 @@ int Administrador::catFile(SuperBloque sb, int posBitmap, vector<string> array_d
         //Actualizamos el posbitmap
         BloqueCarpeta carpeta = getBloqueCarpeta(path,sb.s_block_start,encontro_directorio);
         for (int i = 0;i<4;i++) {
-            if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+            if(carpeta.b_content[i].b_inodo!=-1){
 
-                posBitmap = carpeta.b_content[i].b_inodo;
-                if(posBitmap!=-1)
+                if(strcmp(carpeta.b_content[i].b_name,array_directorios.at(posActualCarpeta).data())==0){
+
+                    posBitmap = carpeta.b_content[i].b_inodo;
                     break;
+                }
             }
         }
         //Si lo encontró en los directorios
@@ -3772,7 +3801,7 @@ void Administrador::crearUsers(SuperBloque sb, char *path){
     raiz.i_block[0]=1;
     BloqueArchivo barchivo;
 
-    strcpy(barchivo.b_content,"1,G,root\n1,U,root,123");
+    strcpy(barchivo.b_content,"1,G,root\n1,U,root,root,123");
 
     escribirBloqueArchivo(barchivo,path,sb,1);
 

@@ -145,7 +145,11 @@ void Interprete::ejecutar(string entrada){
                                 funcion->fileName+=comando[contador];
                             tokenActual+=comando[contador];
                             contador++;
-                        } while (comando[contador]!='\"'&&contador<100&&comando[contador-1]!='\"');
+                            if(comando[contador]==13){
+                                contador++;
+                                break;
+                            }
+                        } while (comando[contador]!='\"'&&contador<tamanoEntrada&&comando[contador-1]!='\"');
                         contador++;
                         cout<<"Se reconoció la cadena: "<<tokenActual<<endl;
                         if(opActual==3){
